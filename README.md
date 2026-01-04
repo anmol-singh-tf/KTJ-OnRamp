@@ -1,88 +1,99 @@
-# Biometric-Only Ethereum Web Wallet (Hackathon Track 1)
+# Biometric-Only Ethereum Web Wallet (Track 1: On-Chain Biometrics)
 
-**A "Keyless" Web Wallet where your fingerprint *is* your specific private key.**
+**A "Keyless" Non-Custodial Wallet where your Identity IS your Private Key.**
 
-This project demonstrates a biometric-only Ethereum wallet for the OnRamp Hackathon. Unlike traditional wallets that store private keys (encrypted or otherwise), this wallet **deterministically derives** the private key on-the-fly from a fingerprint scan using a cryptographic fuzzy extractor. The private key exists only in memory during the transaction signing process and is immediately erased afterwards.
+## 📖 Project Overview
 
-## 🚀 Key Features
+This project was built for the **OnRamp Hackathon (Track 1)** to demonstrate a novel approach to cryptocurrency wallets. Traditional wallets force users to manage mnemonics (seed phrases) or rely on centralized custodians. If you lose your seed phrase, you lose your funds.
 
-*   **Zero Key Storage**: No private keys are saved to disk or database.
-*   **Biometric Derivation**: Uses OpenCV and Fuzzy Extractors to generate stable keys from noisy biometric data.
-*   **Ethereum Integration**: Connects to **Polygon Amoy Testnet** for real transactions.
-*   **Modern UI**: Dark-mode interface with Tailwind CSS.
-*   **QR Payment**: Built-in QR code scanner for easy receiver address input.
+**Our Solution**: A biometric-only wallet where the private key is **mathematically derived on-demand** from your fingerprint.
+*   **No Seed Phrases**: You don't need to remember anything.
+*   **No Stored Keys**: The private key never exists on a hard drive or database. It is fleetingly reconstructed in RAM only for the milliseconds required to sign a transaction, then destroyed.
 
-## 🛠️ Tech Stack
+---
 
-*   **Backend**: Python (Flask)
-*   **Blockchain**: Web3.py, Eth-Account
-*   **Biometrics**: OpenCV (Image Processing), Fuzzy Extractor (Key Derivation)
-*   **Frontend**: HTML5, JavaScript, Tailwind CSS, html5-qrcode
+## � Technical Deep Dive
 
-## 📋 Prerequisites
+### 1. How the Private Key is Generated (The Cryptography)
 
-*   Python 3.8 or higher.
-*   An internet connection (to connect to Polygon RPC).
-*   A fingerprint image (or use the provided `dummy_fingerprint.png` generator).
+We utilize a **Fuzzy Extractor**, a cryptographic primitive that allows for secure key generation from noisy biometric data.
 
-## ⚙️ Installation
+*   **The Problem with Biometrics**: Your fingerprint scan is never bit-for-bit identical twice. Lighting, pressure, and angle change the pixel data. Standard hashing (SHA-256) would produce completely different keys for slightly different scans.
+*   **The Fuzzy Extractor Solution**:
+    1.  **Registration (`generate`)**:
+        *   Input: Initial Fingerprint Scan ($Bio$).
+        *   Output: A stable Private Key ($R$) and public **Helper Data** ($P$).
+        *   The Helper Data $P$ allows the system to correct errors in future scans but reveals *nothing* about the key $R$ itself.
+    2.  **Payment (`reproduce`)**:
+        *   Input: A new, slightly different Fingerprint Scan ($Bio'$) + The preserved Helper Data ($P$).
+        *   Process: The extractor uses $P$ to "guide" the noisy $Bio'$ back to the original $Bio$ (mathematically) to reconstruct exactly $R$.
+    3.  **Result**: The same Private Key is derived every time, despite biometric noise.
 
-1.  **Clone the repository**:
-    ```bash
-    git clone <repository-url>
-    cd <repository-directory>
-    ```
+### 2. How the Transaction is Signed
 
-2.  **Install Dependencies**:
-    ```bash
-    pip install -r requirements.txt
-    ```
-    *Note: If you encounter issues installing `fuzzy_extractor` on Windows, the system will automatically fall back to a `MockFuzzyExtractor` included in `biometrics.py` for demonstration purposes.*
+The signing process assumes a "Zero-Trust" architecture regarding key storage.
 
-## 🏃 Usage Guide
+1.  **User Action**: User uploads fingerprint image and clicks "Pay".
+2.  **Ephemeral Reconstruction**: Python backend calls `biometrics.reproduce(new_scan, helper_data)`.
+3.  **Key Instantiation (In-Memory)**: The Private Key object is created in volatile RAM.
+4.  **Signing**: `web3.py` uses this object to cryptographically sign the Ethereum transaction object (containing Nonce, To, Value, Gas).
+5.  **Atomic Cleanup**: Immediately after the signature is generated, the `private_key` variable is explicitly deleted (`del private_key`) and memory is freed. The key ceases to exist.
+6.  **Broadcast**: Only the *signed transaction* (which is safe and public) is sent to the blockchain node.
 
-### 1. Start the Server
-Run the Flask application:
-```bash
-python app.py
-```
-Open your browser and navigate to: `http://localhost:5000`
+### 3. System Wiring & Architecture
 
-### 2. Register (Create Wallet)
-1.  Enter a **Username**.
-2.  Upload a **Fingerprint Image** (supports PNG/JPG).
-    *   *Tip: You can generate a test image by running `python create_dummy_image.py`.*
-3.  Click **Create Wallet**.
-4.  **Important**: The system will display your generated **Wallet Address**. Copy this address.
+The application is structured as a modular pipeline to separate concerns:
 
-### 3. Fund Your Wallet
-Since this is on the **Polygon Amoy Testnet**, you need test MATIC to pay for gas fees.
-*   Go to a [Polygon Faucet](https://faucet.polygon.technology/).
-*   Paste your generated wallet address.
-*   Request Testnet MATIC.
+*   **Frontend (`index.html`)**:
+    *   **Tailwind CSS**: For a modern, responsive dark-mode UI.
+    *   **HTML5-QRCode**: Runs entirely in the browser to scan receiver QR codes from the webcam.
+    *   **API Calls**: Sends multipart/form-data (images + JSON) to the Flask backend.
 
-### 4. Send Payment
-1.  Enter your **Username** from step 2.
-2.  Enter the **Receiver Address** (or use the "Toggle QR Scanner" button).
-3.  Enter the **Amount** (e.g., `0.001`).
-4.  Upload the **SAME Fingerprint Image** you used to register.
-5.  Click **Sign & Pay**.
+*   **Backend API (`app.py`)**:
+    *   Acts as the orchestrator.
+    *   Receives images and payment details.
+    *   Retrieves the user's public "Helper Data" from the mock database.
+    *   **Security Barrier**: It delegates the actual signing to an isolated script.
 
-### 5. Verify Transaction
-*   Check the "System Logs" panel at the bottom of the screen.
-*   If successful, you will see a **Transaction Hash**.
-*   Click the link or copy the hash to [PolygonScan (Amoy)](https://amoy.polygonscan.com/) to view your transaction on the blockchain.
+*   **Secure Enclave Script (`pay_script.py`)**:
+    *   An isolated process spawned *only* for a single transaction.
+    *   **Input**: Fingerprint File, Helper Data, Payment Details.
+    *   **Action**: Derives Key -> Connects to Polygon RPC -> Signs -> Broadcasts.
+    *   **Output**: Transaction Hash.
+    *   **Termination**: The process dies immediately after broadcasting, ensuring total memory clearance.
 
-## ⚠️ Important Notes
+---
 
-*   **Prototype Status**: This is a hackathon prototype. Do not use with mainnet ETH.
-*   **Fuzzy Extractor**: Real biometric data is noisy. The `fuzzy_extractor` library allows for some error tolerance, but consistent lighting/orientation of scans is recommended for best results.
-*   **Mock Mode**: On systems where the C-based cryptographic libraries cannot compile, the app uses a `MockFuzzyExtractor`. This still proves the flow but requires the *exact* same image file (bit-perfect) to reproduce the key.
+## 🌟 Benefits of this Architecture
 
-## 📂 Project Structure
+1.  **True Non-Custodial Ownership**: Even the server admins cannot access your funds because they don't have your fingerprint (the source of entropy).
+2.  **Improved UX**: "Scan to Pay" is familiar to Web2 users (like Apple Pay/FaceID) but maintains Web3 self-sovereignty.
+3.  **Security**:
+    *   **Resistance to Database Leaks**: If the database is hacked, attackers only get "Helper Data," which is useless without your physical fingerprint.
+    *   **Resistance to Disk Forensics**: Keys are never written to the hard drive.
+4.  **Cost Effective**: Uses the Polygon Amoy L2 Testnet for fast, cheap transactions.
 
-*   `app.py`: Main Flask web server and API routes.
-*   `biometrics.py`: Logic for image processing and key derivation.
-*   `pay_script.py`: Standalone script for secure transaction signing.
-*   `templates/index.html`: The frontend user interface.
-*   `requirements.txt`: Python package dependencies.
+---
+
+## ⚙️ Setup & Usage
+
+### Prerequisites
+*   Python 3.8+
+*   `pip install -r requirements.txt`
+
+### Running the App
+1.  **Start Server**: `python app.py`
+2.  **Access**: `http://localhost:5000`
+
+### User Flow
+1.  **Register**: Upload a fingerprint scan. The system saves your "Helper Data".
+2.  **Fund**: Get [Amoy MATIC](https://faucet.polygon.technology/) for the generated address.
+3.  **Pay**: Enter receiver address (or scan QR), amount, and upload your fingerprint again.
+4.  **Verify**: Click the Transaction Hash link in the logs to see it on the blockchain.
+
+---
+
+## ⚠️ Hackathon Prototype Notes
+
+*   **Mock Fallback**: To ensure this runs on all judges' machines (Windows/Mac/Linux) without complex C-compiler setups, we included a `MockFuzzyExtractor`. If the strict `fuzzy_extractor` library fails to load, the mock takes over. The mock requires the **exact same image file** for key reproduction (zero noise tolerance) but perfectly demonstrates the architectural flow.
+*   **Security**: In a production version, the fingerprint processing would happen inside a Trusted Execution Environment (TEE) or Secure Enclave (SGX) to prevent OS-level snooping.
