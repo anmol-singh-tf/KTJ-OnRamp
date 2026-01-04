@@ -1,0 +1,6 @@
+Flask
+web3
+opencv-python-headless
+fuzzy_extractor
+eth-account
+numpy

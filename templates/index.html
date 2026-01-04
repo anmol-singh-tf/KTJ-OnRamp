@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biometric-Only Wallet</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-6">
+    <div class="max-w-4xl mx-auto space-y-8">
+        
+        <!-- Header -->
+        <header class="text-center py-6">
+            <h1 class="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
+                Bio-Wallet
+            </h1>
+            <p class="text-slate-400 mt-2">Biometric-Only Key Derivation</p>
+        </header>
+
+        <!-- Main Grid -->
+        <div class="grid md:grid-cols-2 gap-8">
+            
+            <!-- Register Card -->
+            <div class="glass rounded-xl p-6 space-y-4">
+                <h2 class="text-xl font-semibold text-blue-400">1. Register Identity</h2>
+                <div class="space-y-3">
+                    <input type="text" id="reg-username" placeholder="Choose Username" 
+                           class="w-full bg-slate-800 border border-slate-700 rounded px-4 py-2 focus:outline-none focus:border-blue-500">
+                    
+                    <div class="border-2 border-dashed border-slate-700 rounded-lg p-4 text-center hover:border-blue-400 transition-colors">
+                        <label class="cursor-pointer block">
+                            <span class="text-sm text-slate-400">Upload Fingerprint Scan</span>
+                            <input type="file" id="reg-fingerprint" accept="image/*" class="hidden">
+                        </label>
+                        <p id="reg-file-name" class="text-xs text-slate-500 mt-2"></p>
+                    </div>
+
+                    <button onclick="register()" 
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded transition-colors">
+                        Create Wallet
+                    </button>
+                </div>
+            </div>
+
+            <!-- Pay Card -->
+            <div class="glass rounded-xl p-6 space-y-4">
+                <h2 class="text-xl font-semibold text-purple-400">2. Send Payments</h2>
+                
+                <!-- QR Scanner Area -->
+                <div id="qr-reader" class="rounded overflow-hidden w-full h-48 bg-black mb-4 hidden"></div>
+                <button onclick="toggleScanner()" class="text-xs text-purple-400 underline mb-2">Toggle QR Scanner</button>
+
+                <div class="space-y-3">
+                    <input type="text" id="pay-username" placeholder="Your Username" 
+                           class="w-full bg-slate-800 border border-slate-700 rounded px-4 py-2 focus:outline-none focus:border-purple-500">
+
+                    <input type="text" id="pay-receiver" placeholder="Receiver Address (0x...)" 
+                           class="w-full bg-slate-800 border border-slate-700 rounded px-4 py-2 focus:outline-none focus:border-purple-500">
+                    
+                    <input type="number" id="pay-amount" placeholder="Amount (ETH)" step="0.0001"
+                           class="w-full bg-slate-800 border border-slate-700 rounded px-4 py-2 focus:outline-none focus:border-purple-500">
+                    
+                    <div class="border-2 border-dashed border-slate-700 rounded-lg p-4 text-center hover:border-purple-400 transition-colors">
+                        <label class="cursor-pointer block">
+                            <span class="text-sm text-slate-400">Upload Fingerprint to Sign</span>
+                            <input type="file" id="pay-fingerprint" accept="image/*" class="hidden">
+                        </label>
+                        <p id="pay-file-name" class="text-xs text-slate-500 mt-2"></p>
+                    </div>
+
+                    <button onclick="pay()" 
+                            class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 rounded transition-colors">
+                        Sign & Pay
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs Section -->
+        <div class="glass rounded-xl p-6">
+            <h3 class="text-sm uppercase tracking-wider text-slate-500 mb-2">System Logs</h3>
+            <div id="logs" class="bg-black rounded font-mono text-xs p-4 h-48 overflow-y-auto text-green-400 space-y-1">
+                <div class="opacity-50">> System initialized...</div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // UI Helpers
+        const log = (msg) => {
+            const logs = document.getElementById('logs');
+            const div = document.createElement('div');
+            div.textContent = `> ${msg}`;
+            logs.appendChild(div);
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        document.getElementById('reg-fingerprint').addEventListener('change', e => {
+            document.getElementById('reg-file-name').textContent = e.target.files[0]?.name || '';
+        });
+        document.getElementById('pay-fingerprint').addEventListener('change', e => {
+            document.getElementById('pay-file-name').textContent = e.target.files[0]?.name || '';
+        });
+
+        // QR Scanner
+        let html5QrcodeScanner;
+        function toggleScanner() {
+            const reader = document.getElementById('qr-reader');
+            if (reader.classList.contains('hidden')) {
+                reader.classList.remove('hidden');
+                html5QrcodeScanner = new Html5QrcodeScanner("qr-reader", { fps: 10, qrbox: 250 });
+                html5QrcodeScanner.render(onScanSuccess);
+            } else {
+                reader.classList.add('hidden');
+                html5QrcodeScanner?.clear();
+            }
+        }
+
+        function onScanSuccess(decodedText) {
+            if (decodedText.startsWith('0x') || decodedText.startsWith('ethereum:')) {
+                const addr = decodedText.replace('ethereum:', '');
+                document.getElementById('pay-receiver').value = addr;
+                log(`QR Code Detected: ${addr}`);
+                html5QrcodeScanner.clear();
+                document.getElementById('qr-reader').classList.add('hidden');
+            }
+        }
+
+        // API Calls
+        async function register() {
+            const username = document.getElementById('reg-username').value;
+            const file = document.getElementById('reg-fingerprint').files[0];
+            
+            if (!username || !file) return log('Error: Username and Fingerprint required');
+
+            log('Uploading biometric data...');
+            const formData = new FormData();
+            formData.append('username', username);
+            formData.append('fingerprint', file);
+
+            try {
+                const res = await fetch('/register', { method: 'POST', body: formData });
+                const data = await res.json();
+                
+                if (data.status === 'success') {
+                    log(`Registration Complete!`);
+                    log(`Username: ${data.username}`);
+                    log(`Generated Address: ${data.address}`);
+                    log(`Make sure to fund this address on Polygon Amoy Faucet!`);
+                } else {
+                    log(`Error: ${data.error}`);
+                }
+            } catch (e) {
+                log(`Network Error: ${e.message}`);
+            }
+        }
+
+        async function pay() {
+            const username = document.getElementById('pay-username').value;
+            const receiver = document.getElementById('pay-receiver').value;
+            const amount = document.getElementById('pay-amount').value;
+            const file = document.getElementById('pay-fingerprint').files[0];
+
+            if (!username || !receiver || !amount || !file) return log('Error: All fields required');
+
+            log('Initiating Payment Flow...');
+            log('Step 1: Uploading Biometrics for Key Derivation...');
+            
+            const formData = new FormData();
+            formData.append('username', username);
+            formData.append('receiver', receiver);
+            formData.append('amount', amount);
+            formData.append('fingerprint', file);
+
+            try {
+                // The backend calls the script which connects to blockchain
+                log('Step 2: Backend running secure payment script...');
+                const res = await fetch('/pay', { method: 'POST', body: formData });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    log('Payment Success!');
+                    log(`Tx Hash: ${data.tx_hash}`);
+                    // Optional: link to explorer
+                    log(`View on Explorer: https://amoy.polygonscan.com/tx/${data.tx_hash}`);
+                } else {
+                    log(`Transaction Failed`);
+                    log(`Error: ${data.message}`);
+                    if (data.logs) {
+                        data.logs.split('\n').forEach(l => { if(l) log(`[Script] ${l}`); });
+                    }
+                }
+            } catch (e) {
+                log(`Network Error: ${e.message}`);
+            }
+        }
+    </script>
+</body>
+</html>
