@@ -136,5 +136,5 @@ This is a **Hackathon Prototype**.
 ---
 
 ## 👩‍💻 Authors
-**Anmol Singh** & Team
+**Aditya Singh Yadav, Aneesh Singh Rajoriya, Ajitesh Jamulkar, Devansh Bhavishkar, Anmol Singh**
 *Built with ❤️ for OnRamp*
