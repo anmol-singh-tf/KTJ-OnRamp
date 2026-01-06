@@ -28,32 +28,53 @@
 
         <!-- Main Grid -->
         <div class="grid md:grid-cols-2 gap-8">
-            
-            <!-- Register Card -->
-            <div class="glass rounded-xl p-6 space-y-4">
-                <h2 class="text-xl font-semibold text-blue-400">1. Register Identity</h2>
-                <div class="space-y-3">
-                    <input type="text" id="reg-username" placeholder="Choose Username" 
-                           class="w-full bg-slate-800 border border-slate-700 rounded px-4 py-2 focus:outline-none focus:border-blue-500">
-                    
-                    <div class="border-2 border-dashed border-slate-700 rounded-lg p-4 text-center hover:border-blue-400 transition-colors">
-                        <label class="cursor-pointer block">
-                            <span class="text-sm text-slate-400">Upload Fingerprint Scan</span>
-                            <input type="file" id="reg-fingerprint" accept="image/*" class="hidden">
-                        </label>
-                        <p id="reg-file-name" class="text-xs text-slate-500 mt-2"></p>
-                    </div>
 
-                    <button onclick="register()" 
-                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded transition-colors">
-                        Create Wallet
-                    </button>
+            <!-- Left Col: Chat & Register -->
+            <div class="space-y-8">
+                 <!-- AI Chat Card -->
+                <div class="glass rounded-xl p-6 h-96 flex flex-col">
+                    <h2 class="text-xl font-semibold text-green-400 mb-4">✨ AI Concierge</h2>
+                    <div id="chat-history" class="flex-1 overflow-y-auto space-y-3 mb-4 text-sm scrollbar-hide">
+                        <div class="bg-slate-800 p-3 rounded-lg w-fit max-w-[80%]">
+                            Hi! I can help you book flights or pay services. Try "Book a flight to Mumbai".
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <input type="text" id="user-input" placeholder="Type your request..." 
+                               class="flex-1 bg-slate-800 border border-slate-700 rounded px-4 py-2 focus:outline-none focus:border-green-500"
+                               onkeypress="if(event.key === 'Enter') sendChat()">
+                        <button onclick="sendChat()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">
+                            →
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Register Card -->
+                <div class="glass rounded-xl p-6 space-y-4">
+                    <h2 class="text-xl font-semibold text-blue-400">1. Register Identity</h2>
+                    <div class="space-y-3">
+                        <input type="text" id="reg-username" placeholder="Choose Username" 
+                               class="w-full bg-slate-800 border border-slate-700 rounded px-4 py-2 focus:outline-none focus:border-blue-500">
+                        
+                        <div class="border-2 border-dashed border-slate-700 rounded-lg p-4 text-center hover:border-blue-400 transition-colors">
+                            <label class="cursor-pointer block">
+                                <span class="text-sm text-slate-400">Upload Fingerprint Scan</span>
+                                <input type="file" id="reg-fingerprint" accept="image/*" class="hidden">
+                            </label>
+                            <p id="reg-file-name" class="text-xs text-slate-500 mt-2"></p>
+                        </div>
+
+                        <button onclick="register()" 
+                                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded transition-colors">
+                            Create Wallet
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <!-- Pay Card -->
-            <div class="glass rounded-xl p-6 space-y-4">
-                <h2 class="text-xl font-semibold text-purple-400">2. Send Payments</h2>
+            <!-- Right Col: Pay Card -->
+            <div class="glass rounded-xl p-6 space-y-4 h-fit">
+                <h2 class="text-xl font-semibold text-purple-400">2. Sign & Pay</h2>
                 
                 <!-- QR Scanner Area -->
                 <div id="qr-reader" class="rounded overflow-hidden w-full h-48 bg-black mb-4 hidden"></div>
@@ -133,6 +154,75 @@
                 log(`QR Code Detected: ${addr}`);
                 html5QrcodeScanner.clear();
                 document.getElementById('qr-reader').classList.add('hidden');
+            }
+        }
+
+        // Chat Logic
+        async function sendChat() {
+            const input = document.getElementById('user-input');
+            const msg = input.value;
+            if (!msg) return;
+
+            // Add User Message
+            const history = document.getElementById('chat-history');
+            const userDiv = document.createElement('div');
+            userDiv.className = "bg-blue-900 p-3 rounded-lg w-fit max-w-[80%] ml-auto text-right";
+            userDiv.textContent = msg;
+            history.appendChild(userDiv);
+            
+            input.value = '';
+            input.disabled = true;
+
+            // Add Loading
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = "text-xs text-slate-500 animate-pulse";
+            loadingDiv.textContent = "Agent thinking...";
+            history.appendChild(loadingDiv);
+            history.scrollTop = history.scrollHeight;
+
+            try {
+                const res = await fetch('/agent/chat', { 
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({message: msg})
+                });
+                const data = await res.json();
+                
+                history.removeChild(loadingDiv);
+
+                // Add Agent Message
+                const agentDiv = document.createElement('div');
+                agentDiv.className = "bg-slate-800 p-3 rounded-lg w-fit max-w-[80%]";
+                agentDiv.textContent = data.text || "I'm not sure, try again.";
+                history.appendChild(agentDiv);
+
+                // MAGIC: Auto Fill
+                if (data.auto_fill) {
+                    const receiverInput = document.getElementById('pay-receiver');
+                    const amountInput = document.getElementById('pay-amount');
+                    
+                    receiverInput.value = data.auto_fill.receiver;
+                    amountInput.value = data.auto_fill.amount;
+                    
+                    // Flash Effect
+                    receiverInput.classList.add('border-green-500', 'bg-green-900/20');
+                    amountInput.classList.add('border-green-500', 'bg-green-900/20');
+                    setTimeout(() => {
+                        receiverInput.classList.remove('border-green-500', 'bg-green-900/20');
+                        amountInput.classList.remove('border-green-500', 'bg-green-900/20');
+                    }, 2000);
+                    
+                    log('✨ Agent auto-filled payment details! Please confirm with biometrics.');
+                }
+                
+                history.scrollTop = history.scrollHeight;
+
+            } catch (e) {
+                history.removeChild(loadingDiv);
+                log(`Agent Error: ${e.message}`);
+            } finally {
+                input.disabled = false;
+                input.focus();
             }
         }
 

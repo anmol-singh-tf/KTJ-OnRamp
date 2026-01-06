@@ -5,6 +5,7 @@ import subprocess
 import biometrics
 from eth_account import Account
 import secrets
+import agent_service
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -17,6 +18,17 @@ MOCK_DB = {}
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/agent/chat', methods=['POST'])
+def agent_chat():
+    data = request.json
+    user_message = data.get('message')
+    if not user_message:
+        return jsonify({'error': 'No message provided'}), 400
+    
+    # Call the Agent
+    response_data = agent_service.run_agent(user_message)
+    return jsonify(response_data)
 
 @app.route('/register', methods=['POST'])
 def register():
