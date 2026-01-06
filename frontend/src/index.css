@@ -1,0 +1,293 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Bio-Wallet Design System - Dark Mode First, Futuristic Web3 Aesthetic */
+
+@layer base {
+  :root {
+    /* Dark mode by default - Midnight Blue theme */
+    --background: 229 84% 5%;
+    --background-start: 229 84% 5%;
+    --background-end: 260 84% 15%;
+    --foreground: 210 40% 98%;
+
+    --card: 229 50% 10%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 229 50% 10%;
+    --popover-foreground: 210 40% 98%;
+
+    /* Electric Cyan - Primary accent */
+    --primary: 185 100% 50%;
+    --primary-foreground: 229 84% 5%;
+
+    /* Purple accent for secondary actions */
+    --secondary: 270 70% 60%;
+    --secondary-foreground: 210 40% 98%;
+
+    /* Muted surfaces */
+    --muted: 229 40% 15%;
+    --muted-foreground: 215 20% 65%;
+
+    /* Accent matches primary */
+    --accent: 185 100% 50%;
+    --accent-foreground: 229 84% 5%;
+
+    /* Success green */
+    --success: 142 76% 45%;
+    --success-foreground: 210 40% 98%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 229 40% 20%;
+    --input: 229 40% 12%;
+    --ring: 185 100% 50%;
+
+    --radius: 0.75rem;
+
+    /* Glassmorphism */
+    --glass-bg: 229 50% 100% / 0.05;
+    --glass-border: 0 0% 100% / 0.1;
+    --glass-blur: 16px;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(185 100% 50%), hsl(270 70% 60%));
+    --gradient-bg: linear-gradient(180deg, hsl(229 84% 5%), hsl(260 84% 15%));
+
+    /* Shadows */
+    --glow-primary: 0 0 30px hsl(185 100% 50% / 0.3);
+    --glow-success: 0 0 30px hsl(142 76% 45% / 0.3);
+
+    --sidebar-background: 229 50% 8%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 185 100% 50%;
+    --sidebar-primary-foreground: 229 84% 5%;
+    --sidebar-accent: 229 40% 15%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 229 40% 20%;
+    --sidebar-ring: 185 100% 50%;
+  }
+
+  .light {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 185 100% 40%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 270 70% 50%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 185 100% 40%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 185 100% 40%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-family: 'Inter', sans-serif;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    background: linear-gradient(180deg, hsl(229 84% 5%), hsl(260 84% 15%));
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  /* Glassmorphism card */
+  .glass {
+    @apply backdrop-blur-xl rounded-xl border;
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .glass-strong {
+    @apply backdrop-blur-2xl rounded-xl border;
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  /* Gradient buttons */
+  .btn-gradient {
+    @apply relative overflow-hidden rounded-xl px-6 py-3 font-semibold text-primary-foreground transition-all duration-300;
+    background: linear-gradient(135deg, hsl(185 100% 50%), hsl(270 70% 60%));
+    box-shadow: 0 4px 20px hsl(185 100% 50% / 0.3);
+  }
+
+  .btn-gradient:hover {
+    box-shadow: 0 6px 30px hsl(185 100% 50% / 0.5);
+    transform: translateY(-2px);
+  }
+
+  /* Glowing inputs */
+  .input-glow {
+    @apply bg-input border border-border rounded-xl px-4 py-3 transition-all duration-300;
+    background: hsl(229 40% 8%);
+  }
+
+  .input-glow:focus {
+    @apply outline-none;
+    border-color: hsl(185 100% 50%);
+    box-shadow: 0 0 20px hsl(185 100% 50% / 0.2);
+  }
+
+  /* Fingerprint pulse animation */
+  .fingerprint-pulse {
+    @apply relative;
+  }
+
+  .fingerprint-pulse::before {
+    content: '';
+    @apply absolute inset-0 rounded-full;
+    background: linear-gradient(135deg, hsl(185 100% 50%), hsl(270 70% 60%));
+    animation: pulse-ring 2s ease-out infinite;
+    opacity: 0;
+  }
+
+  /* Status badge */
+  .status-badge {
+    @apply inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium;
+    background: rgba(34, 197, 94, 0.15);
+    color: hsl(142 76% 50%);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+  }
+
+  /* Chat bubbles */
+  .chat-bubble-user {
+    @apply px-4 py-3 rounded-2xl rounded-br-sm max-w-[80%] ml-auto;
+    background: linear-gradient(135deg, hsl(185 100% 50% / 0.2), hsl(270 70% 60% / 0.2));
+    border: 1px solid hsl(185 100% 50% / 0.3);
+  }
+
+  .chat-bubble-agent {
+    @apply px-4 py-3 rounded-2xl rounded-bl-sm max-w-[80%];
+    background: hsl(229 40% 15%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  /* Scan frame */
+  .scan-frame {
+    @apply relative;
+  }
+
+  .scan-frame::before,
+  .scan-frame::after {
+    content: '';
+    @apply absolute w-8 h-8 border-2 border-primary;
+  }
+
+  .scan-frame::before {
+    @apply top-0 left-0 border-r-0 border-b-0 rounded-tl-lg;
+  }
+
+  .scan-frame::after {
+    @apply top-0 right-0 border-l-0 border-b-0 rounded-tr-lg;
+  }
+
+  /* Transaction proposal card */
+  .tx-proposal {
+    @apply glass-strong p-4 space-y-3;
+    border: 1px solid hsl(185 100% 50% / 0.3);
+    box-shadow: 0 0 20px hsl(185 100% 50% / 0.1);
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, hsl(185 100% 50%), hsl(270 70% 60%));
+  }
+
+  .glow-primary {
+    box-shadow: 0 0 30px hsl(185 100% 50% / 0.3);
+  }
+
+  .glow-success {
+    box-shadow: 0 0 30px hsl(142 76% 45% / 0.3);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+@keyframes scan-line {
+  0%, 100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateY(100%);
+    opacity: 1;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes checkmark {
+  0% {
+    stroke-dashoffset: 100;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-ripple {
+  animation: ripple 0.6s ease-out;
+}
+
+.animate-scan-line {
+  animation: scan-line 2s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-checkmark {
+  animation: checkmark 0.5s ease-out forwards;
+}
