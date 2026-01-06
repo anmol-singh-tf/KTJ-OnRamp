@@ -1,99 +1,140 @@
-# Biometric-Only Ethereum Web Wallet (Track 1: On-Chain Biometrics)
+# 🖐️ Bio-Wallet & AI Concierge (OnRamp X KTJ)
 
-**A "Keyless" Non-Custodial Wallet where your Identity IS your Private Key.**
+**Zero-Key, Biometric-Only Ethereum Wallet with Agentic Intelligence.**
 
-## 📖 Project Overview
-
-This project was built for the **OnRamp Hackathon (Track 1)** to demonstrate a novel approach to cryptocurrency wallets. Traditional wallets force users to manage mnemonics (seed phrases) or rely on centralized custodians. If you lose your seed phrase, you lose your funds.
-
-**Our Solution**: A biometric-only wallet where the private key is **mathematically derived on-demand** from your fingerprint.
-*   **No Seed Phrases**: You don't need to remember anything.
-*   **No Stored Keys**: The private key never exists on a hard drive or database. It is fleetingly reconstructed in RAM only for the milliseconds required to sign a transaction, then destroyed.
+> **Hackathon Project**: Built for the OnRamp Track 1.
+> **Objective**: Eliminate seed phrases entirely using biometrics and simplify crypto interactions using Natural Language AI.
 
 ---
 
-## � Technical Deep Dive
+## 🌟 Key Features
 
-### 1. How the Private Key is Generated (The Cryptography)
+### 1. Biometric-Only Security (No Seed Phrases)
+*   **True "Keyless" Experience**: Users never see or store a Private Key or Seed Phrase.
+*   **On-the-Fly Key Derivation**: The Private Key is mathematically regenerated from your Fingerprint Scan + Helper Data (stored on-chain or database) only during the transaction moment.
+*   **Ephemeral Security**: The key exists in memory for milliseconds and is wiped immediately after signing.
 
-We utilize a **Fuzzy Extractor**, a cryptographic primitive that allows for secure key generation from noisy biometric data.
+### 2. AI Concierge (Agentic Layer)
+*   **Natural Language Actions**: "Book a flight to Mumbai under 20000 USDC".
+*   **Smart Parsing**: The Agent identifies the **Receiver** and **Amount**, checks flight prices via tools, and auto-fills the transaction form.
+*   **Human-in-the-Loop**: The AI prepares the transaction; YOU sign it with your fingerprint.
 
-*   **The Problem with Biometrics**: Your fingerprint scan is never bit-for-bit identical twice. Lighting, pressure, and angle change the pixel data. Standard hashing (SHA-256) would produce completely different keys for slightly different scans.
-*   **The Fuzzy Extractor Solution**:
-    1.  **Registration (`generate`)**:
-        *   Input: Initial Fingerprint Scan ($Bio$).
-        *   Output: A stable Private Key ($R$) and public **Helper Data** ($P$).
-        *   The Helper Data $P$ allows the system to correct errors in future scans but reveals *nothing* about the key $R$ itself.
-    2.  **Payment (`reproduce`)**:
-        *   Input: A new, slightly different Fingerprint Scan ($Bio'$) + The preserved Helper Data ($P$).
-        *   Process: The extractor uses $P$ to "guide" the noisy $Bio'$ back to the original $Bio$ (mathematically) to reconstruct exactly $R$.
-    3.  **Result**: The same Private Key is derived every time, despite biometric noise.
-
-### 2. How the Transaction is Signed
-
-The signing process assumes a "Zero-Trust" architecture regarding key storage.
-
-1.  **User Action**: User uploads fingerprint image and clicks "Pay".
-2.  **Ephemeral Reconstruction**: Python backend calls `biometrics.reproduce(new_scan, helper_data)`.
-3.  **Key Instantiation (In-Memory)**: The Private Key object is created in volatile RAM.
-4.  **Signing**: `web3.py` uses this object to cryptographically sign the Ethereum transaction object (containing Nonce, To, Value, Gas).
-5.  **Atomic Cleanup**: Immediately after the signature is generated, the `private_key` variable is explicitly deleted (`del private_key`) and memory is freed. The key ceases to exist.
-6.  **Broadcast**: Only the *signed transaction* (which is safe and public) is sent to the blockchain node.
-
-### 3. System Wiring & Architecture
-
-The application is structured as a modular pipeline to separate concerns:
-
-*   **Frontend (`index.html`)**:
-    *   **Tailwind CSS**: For a modern, responsive dark-mode UI.
-    *   **HTML5-QRCode**: Runs entirely in the browser to scan receiver QR codes from the webcam.
-    *   **API Calls**: Sends multipart/form-data (images + JSON) to the Flask backend.
-
-*   **Backend API (`app.py`)**:
-    *   Acts as the orchestrator.
-    *   Receives images and payment details.
-    *   Retrieves the user's public "Helper Data" from the mock database.
-    *   **Security Barrier**: It delegates the actual signing to an isolated script.
-
-*   **Secure Enclave Script (`pay_script.py`)**:
-    *   An isolated process spawned *only* for a single transaction.
-    *   **Input**: Fingerprint File, Helper Data, Payment Details.
-    *   **Action**: Derives Key -> Connects to Polygon RPC -> Signs -> Broadcasts.
-    *   **Output**: Transaction Hash.
-    *   **Termination**: The process dies immediately after broadcasting, ensuring total memory clearance.
+### 3. Modern Glassmorphism UI
+*   Built with **React + Vite + Tailwind**.
+*   Smooth animations, dark mode aesthetics, and "Scan & Pay" QR functionality.
 
 ---
 
-## 🌟 Benefits of this Architecture
+## 🏗️ Architecture & Tech Stack
 
-1.  **True Non-Custodial Ownership**: Even the server admins cannot access your funds because they don't have your fingerprint (the source of entropy).
-2.  **Improved UX**: "Scan to Pay" is familiar to Web2 users (like Apple Pay/FaceID) but maintains Web3 self-sovereignty.
-3.  **Security**:
-    *   **Resistance to Database Leaks**: If the database is hacked, attackers only get "Helper Data," which is useless without your physical fingerprint.
-    *   **Resistance to Disk Forensics**: Keys are never written to the hard drive.
-4.  **Cost Effective**: Uses the Polygon Amoy L2 Testnet for fast, cheap transactions.
+The system is split into two robust components:
+
+### 1️⃣ The Backend (Brain & Security)
+*   **Language**: Python (Flask)
+*   **Cryptography**: `fuzzy_extractor` (Biometric Binding), `web3.py` (Blockchain Interaction).
+*   **AI Engine**: `LangChain` + `Google Gemini 2.0 Flash`.
+*   **Endpoints**:
+    *   `/register`: Takes a username + fingerprint image -> Generates Wallet Address.
+    *   `/pay`: Takes payment details + fingerprint -> Regenerates Key -> Signs & Broadcasts Tx.
+    *   `/agent/chat`: Takes user text -> Returns JSON structured transaction proposals.
+
+### 2️⃣ The Frontend (Interface)
+*   **Framework**: React (Vite)
+*   **Styling**: Tailwind CSS (Glassmorphism design).
+*   **State Management**: React Hooks.
+*   **API Communication**: `fetch` with CORS enabled to talk to the Flask backend.
 
 ---
 
-## ⚙️ Setup & Usage
+## 🔧 Under the Hood: How it Works
+
+### A. The Biometric Magic (Fuzzy Extractor)
+1.  **Registration**:
+    *   You upload a fingerprint.
+    *   The system extracts feature points.
+    *   It generates a **Private Key (R)** and **Helper Data (P)**.
+    *   `R` is discarded. `P` is stored in the database (MOCK_DB).
+2.  **Signing (The Trick)**:
+    *   You upload the fingerprint again (which is slightly different due to noise).
+    *   The system combines the **New Fingerprint** + **Helper Data (P)**.
+    *   The **Fuzzy Extractor** algorithms correct the noise and recover the **Exact Original Private Key (R)**.
+    *   The transaction is signed, and `R` is wiped from memory.
+
+### B. The Agentic Layer
+1.  **User Intent**: User types "Pay 0.05 ETH to Bob".
+2.  **LLM Reasoning**: Google Gemini analyzes the text.
+3.  **Tool Use**: If the user asks for "flights", the Agent calls a (Mock) `search_flights` tool to find prices, airlines, and the airline's wallet address.
+4.  **Structured Output**: The Agent returns a clean JSON object:
+    ```json
+    {
+      "text": "I found a flight for 0.05 ETH...",
+      "auto_fill": {
+        "receiver": "0x123...",
+        "amount": 0.05
+      }
+    }
+    ```
+5.  **UI Reaction**: The Frontend detects `auto_fill` and populates the Payment Form automatically.
+
+---
+
+## 🚀 Getting Started
 
 ### Prerequisites
-*   Python 3.8+
-*   `pip install -r requirements.txt`
+*   **Python 3.10+** (Recommend 3.11/3.12)
+*   **Node.js & npm**
+*   **Google Gemini API Key** (Free tier works, enable "Generative Language API")
 
-### Running the App
-1.  **Start Server**: `python app.py`
-2.  **Access**: `http://localhost:5000`
+### Step 1: Backend Setup
+1.  Navigate to the root directory:
+    ```bash
+    cd "d:\Track 1 ORH"
+    ```
+2.  Install Dependencies:
+    ```bash
+    pip install -r requirements.txt
+    ```
+3.  Configure Environment:
+    *   Ensure `.env` has your `GOOGLE_API_KEY`.
+4.  Run the Server:
+    ```bash
+    python app.py
+    ```
+    *   *Server runs on `http://localhost:5000`*
 
-### User Flow
-1.  **Register**: Upload a fingerprint scan. The system saves your "Helper Data".
-2.  **Fund**: Get [Amoy MATIC](https://faucet.polygon.technology/) for the generated address.
-3.  **Pay**: Enter receiver address (or scan QR), amount, and upload your fingerprint again.
-4.  **Verify**: Click the Transaction Hash link in the logs to see it on the blockchain.
+### Step 2: Frontend Setup
+1.  Open a new terminal and navigate to frontend:
+    ```bash
+    cd frontend
+    ```
+2.  Install Packages:
+    ```bash
+    npm install
+    ```
+3.  Start Development Server:
+    ```bash
+    npm run dev
+    ```
+    *   *UI runs on `http://localhost:5173`*
+
+### Step 3: Usage Flow
+1.  Open `http://localhost:5173`.
+2.  **Register Tab**: Enter a username (e.g., "demo") and click the Fingerprint icon to upload a fingerprint image (`dummy_fingerprint.png` included in root).
+    *   *Wait for "Wallet Created" toast.*
+3.  **App Switch**: You are now logged in.
+4.  **AI Concierge**: Switch to Chat tab. Type: *"Book a flight from Delhi to Mumbai under 20000 USDC"*.
+5.  **Auto-Fill**: Click the fingerprint icon on the generated proposal.
+6.  **Sign & Pay**: You will be taken to the "Scan & Pay" tab with fields filled. Click the Fingerprint icon again to Sign the transaction.
 
 ---
 
-## ⚠️ Hackathon Prototype Notes
+## 🛡️ Security Note
+This is a **Hackathon Prototype**.
+*   **Key Storage**: We do NOT store keys. We store `Helper Data`, which acts as a "Lock". Only your specific biometric data is the "Key".
+*   **Production Readiness**: In production, the "Helper Data" should be stored on a Smart Contract or IPFS, making the wallet truly decentralized and portable.
 
-*   **Mock Fallback**: To ensure this runs on all judges' machines (Windows/Mac/Linux) without complex C-compiler setups, we included a `MockFuzzyExtractor`. If the strict `fuzzy_extractor` library fails to load, the mock takes over. The mock requires the **exact same image file** for key reproduction (zero noise tolerance) but perfectly demonstrates the architectural flow.
-*   **Security**: In a production version, the fingerprint processing would happen inside a Trusted Execution Environment (TEE) or Secure Enclave (SGX) to prevent OS-level snooping.
+---
+
+## 👩‍💻 Authors
+**Anmol Singh** & Team
+*Built with ❤️ for OnRamp*
