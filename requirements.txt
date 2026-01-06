@@ -4,3 +4,7 @@ opencv-python-headless
 fuzzy_extractor
 eth-account
 numpy
+langchain-google-genai
+langchain
+python-dotenv
+flask-cors
