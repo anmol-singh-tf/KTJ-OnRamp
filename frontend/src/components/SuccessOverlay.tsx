@@ -20,7 +20,7 @@ const SuccessOverlay = ({ isVisible, txHash, onClose }: SuccessOverlayProps) => 
         <div className="relative w-24 h-24 mx-auto">
           {/* Glow effect */}
           <div className="absolute inset-0 rounded-full bg-success/20 blur-xl animate-pulse" />
-          
+
           {/* Circle */}
           <div className="relative w-24 h-24 rounded-full bg-success/20 border-2 border-success flex items-center justify-center glow-success">
             <CheckCircle2 className="w-12 h-12 text-success" />
@@ -33,7 +33,7 @@ const SuccessOverlay = ({ isVisible, txHash, onClose }: SuccessOverlayProps) => 
             Transaction Broadcasted!
           </h3>
           <p className="text-sm text-muted-foreground">
-            Your payment has been successfully sent to the Polygon network.
+            Your payment has been successfully sent to the Sepolia network.
           </p>
         </div>
 
@@ -44,7 +44,7 @@ const SuccessOverlay = ({ isVisible, txHash, onClose }: SuccessOverlayProps) => 
             {shortenHash(txHash)}
           </p>
           <a
-            href={`https://amoy.polygonscan.com/tx/${txHash}`}
+            href={`https://sepolia.etherscan.io/tx/${txHash}`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-2"
