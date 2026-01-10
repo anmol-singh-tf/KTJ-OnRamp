@@ -1,4 +1,4 @@
-# 🖐️ Bio-Wallet & AI Concierge (OnRamp X KTJ)
+# ⚡ Pulse & AI Nexus (OnRamp X KTJ)
 
 **Zero-Key, Biometric-Only Ethereum Wallet with Agentic Intelligence.**
 
@@ -14,7 +14,7 @@
 *   **PRF Extension**: Leverages the **WebAuthn PRF Extension** to deterministically derive a unique 32-byte secret from your hardware chip.
 *   **No Seed Phrases**: The Private Key is mathematically derived **on-demand** for 1 millisecond and then wiped from memory. It is *never* stored on disk or DB.
 
-### 2. AI Concierge (Agentic Layer)
+### 2. AI Nexus (Agentic Layer)
 *   **Natural Language Actions**: "Book a flight to Mumbai under 0.05 ETH".
 *   **Smart Parsing**: The Agent identifies the intent, fetches real-time data (mocked for demo), and auto-fills transaction details.
 *   **Human-in-the-Loop**: The AI prepares the transaction; YOU sign it with your Face/Check.
