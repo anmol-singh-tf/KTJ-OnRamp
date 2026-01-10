@@ -3,7 +3,7 @@ import { Scan, MessageSquare, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Header from "@/components/Header";
 import ScanPayTab from "@/components/ScanPayTab";
-import AIConciergeTab from "@/components/AIConciergeTab";
+import AINexusTab from "@/components/AINexusTab";
 import RegisterTab from "@/components/RegisterTab";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import SuccessOverlay from "@/components/SuccessOverlay";
@@ -115,7 +115,7 @@ const Index = () => {
   const tabs = [
     { id: "register" as const, label: "Register", icon: UserPlus },
     { id: "scan" as const, label: "Scan & Pay", icon: Scan },
-    { id: "chat" as const, label: "AI Concierge", icon: MessageSquare },
+    { id: "chat" as const, label: "AI Nexus", icon: MessageSquare },
   ];
 
   return (
@@ -169,7 +169,7 @@ const Index = () => {
             />
           )}
           {activeTab === "chat" && (
-            <AIConciergeTab onAutoFill={handleAutoFill} />
+            <AINexusTab onAutoFill={handleAutoFill} />
           )}
         </div>
       </main>

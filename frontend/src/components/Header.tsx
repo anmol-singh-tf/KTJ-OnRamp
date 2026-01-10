@@ -10,7 +10,7 @@ const Header = () => {
             <Wallet className="w-5 h-5 text-primary-foreground" />
           </div>
           <h1 className="text-xl font-bold text-foreground">
-            Bio-Wallet
+            Pulse
           </h1>
         </div>
 
