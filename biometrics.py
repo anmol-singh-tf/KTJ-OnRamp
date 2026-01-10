@@ -1,70 +1,18 @@
-import cv2
-import numpy as np
 import hashlib
-import os
+from eth_account import Account
 
-try:
-    from fuzzy_extractor import FuzzyExtractor
-except ImportError:
-    print("Warning: fuzzy_extractor not found. Using MockFuzzyExtractor.")
-    class FuzzyExtractor:
-        def __init__(self, precision, error_precision):
-            self.precision = precision
-            self.error_precision = error_precision
-
-        def generate(self, data):
-            # Deterministic key from data
-            key = hashlib.sha256(data).digest()
-            # Random helper data (simulated)
-            helper = os.urandom(32)
-            return key, helper
-
-        def reproduce(self, data, helper):
-            # In a real fuzzy extractor, helper + noisy data -> original key.
-            # Here we just re-hash the data. 
-            # Note: This Mock does NOT handle noise. Input must be identical.
-            return hashlib.sha256(data).digest()
-
-def image_to_feature_vector(image_path):
+def derive_key(prf_secret_hex):
     """
-    Reads an image, converts to grayscale, thresholds to binary,
-    and flattens to a bytes string.
+    Derives a private key from a WebAuthn PRF Secret.
+    The secret is already a high-entropy 32-byte hex string from the hardware.
+    We hash it once more for good measure (and to ensure bytes format) 
+    and use it as the private key.
     """
-    # Read image in grayscale
-    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-    if img is None:
-        raise ValueError(f"Could not read image at {image_path}")
-
-    # Resize to specific dimensions to ensure consistent vector size
-    # Assuming a standard size for fingerprints, e.g., 200x200
-    img = cv2.resize(img, (200, 200))
-
-    # Threshold to binary (0 or 255)
-    _, thresh = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
-
-    # Flatten the array
-    flat = thresh.flatten()
+    # secret_hex is expected to be a hex string from the frontend
+    secret_bytes = bytes.fromhex(prf_secret_hex)
     
-    # Convert to bytes
-    return flat.tobytes()
-
-def derive_key(fingerprint_path, helper_data=None):
-    """
-    Derives a private key from a fingerprint image.
-    If helper_data is None, it generates new helper_data (Registration).
-    If helper_data is provided, it reproduces the key (Login/Payment).
-    """
-    fingerprint_bytes = image_to_feature_vector(fingerprint_path)
+    # Sha256 to ensure it's a valid 32-byte key source
+    key_bytes = hashlib.sha256(secret_bytes).digest()
     
-    # Initialize Fuzzy Extractor
-    # accuracy=16, error_precision=6
-    extractor = FuzzyExtractor(16, 6) 
+    return key_bytes
 
-    if helper_data is None:
-        # Generate new key and helper data
-        k, h = extractor.generate(fingerprint_bytes)
-        return k, h
-    else:
-        # Reproduce key from noisy input + helper data
-        k = extractor.reproduce(fingerprint_bytes, helper_data)
-        return k

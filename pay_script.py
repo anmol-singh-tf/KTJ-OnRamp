@@ -10,47 +10,34 @@ def main():
         print("Usage: python pay_script.py <receiver> <amount> <fingerprint_path> <helper_data_json>")
         sys.exit(1)
 
+    # Arguments: <receiver> <amount> <fingerprint_path> <helper_data_or_secret>
     receiver_address = sys.argv[1].strip()
     amount_eth = float(sys.argv[2])
-    fingerprint_path = sys.argv[3]
-    helper_data_str = sys.argv[4]
+    arg3 = sys.argv[3] # Was fingerprint_path, now might be "PRF_MODE"
+    arg4 = sys.argv[4] # Was helper_data, now might be prf_secret
 
     try:
-        # Load helper data
-        # Helper data from app might be a list (from tuple) or a hex string (from bytes)
-        raw_helper = json.loads(helper_data_str)
+        private_key = None
         
-        helper_data = None
-        if isinstance(raw_helper, list):
-            # If list, checks elements. If they act like hex strings of bytes...
-            # But fuzzy_extractor expects tuple of numpy probably.
-            # Simplified for Mock: Mock produces bytes helper.
-            # Real fuzzy: produces tuple.
-            # To be robust: If we see list of strings, maybe convert back? 
-            # For now, let's assume Mock usage mainly or robust fuzzy usage.
-            # If standard fuzzy_extractor usage, it might be fine as list? 
-            # Actually, let's just pass it as tuple.
-            helper_data = tuple(raw_helper)
-        elif isinstance(raw_helper, str):
-            # Assume hex string
-            helper_data = bytes.fromhex(raw_helper)
+        if arg3 == "PRF_MODE":
+            # PRF Mode: arg4 is the secret hex
+            print("Deriving key from WebAuthn PRF Secret...")
+            private_key = biometrics.derive_key(arg4)
         else:
-            helper_data = raw_helper
+            # Legacy Mode (if ever needed, but we replaced biometrics.py so this path is dead unless we kept it)
+            # Since we replaced biometrics.derive_key to ONLY take secret_hex, 
+            # we must assume PRF_MODE is the only valid mode now.
+            print("Error: Legacy file-based mode is deprecated.")
+            sys.exit(1)
 
-        # 1. Derive Private Key
-        print("Deriving key from biometrics...")
-        private_key = biometrics.derive_key(fingerprint_path, helper_data)
-        
-        # Verify key format (fuzzy extractor returns bytes, we might need hex)
-        # eth_account accepts bytes or hex.
-        # If private_key is bytes, keep it as is.
-
-        # 2. Connect to Polygon Amoy
-        rpc_url = "https://rpc-amoy.polygon.technology" # Public RPC
+        # 2. Connect to Sepolia Testnet
+        # 2. Connect to Sepolia Testnet
+        # Using DRPC as verified by check_rpc.py
+        rpc_url = "https://sepolia.drpc.org" 
         w3 = Web3(Web3.HTTPProvider(rpc_url))
         
         if not w3.is_connected():
-            print("Error: Could not connect to Polygon Amoy RPC")
+            print("Error: Could not connect to Sepolia RPC")
             sys.exit(1)
 
         # 3. Create Account Object
@@ -68,8 +55,7 @@ def main():
             'value': w3.to_wei(amount_eth, 'ether'),
             'gas': 21000, # Standard ETH transfer
             'gasPrice': gas_price,
-            'chainId': 80002 # Polygon Amoy Chain ID
-            # 'chainId': 11155111 # Sepolia Chain ID (backup)
+            'chainId': 11155111 # Sepolia Chain ID
         }
 
         # 5. Sign Transaction

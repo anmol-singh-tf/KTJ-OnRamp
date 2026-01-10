@@ -1,31 +1,39 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { Fingerprint, User } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner"; // Using sonner as per package.json
+import { toast } from "sonner";
+import { registerCredential } from "@/lib/webauthn";
 
 interface RegisterTabProps {
-    onRegister: (username: string, file: File) => void;
+    onRegister: (username: string, credentialId: string, prfSecret: string) => void;
 }
 
 const RegisterTab = ({ onRegister }: RegisterTabProps) => {
     const [username, setUsername] = useState("");
     const [isRippling, setIsRippling] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isRegistering, setIsRegistering] = useState(false);
 
-    const handleFingerprintClick = () => {
+    const handleFingerprintClick = async () => {
         if (!username) {
             toast.error("Please enter a username first");
             return;
         }
-        setIsRippling(true);
-        setTimeout(() => setIsRippling(false), 600);
-        fileInputRef.current?.click();
-    };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file && username) {
-            onRegister(username, file);
+        try {
+            setIsRippling(true);
+            setIsRegistering(true);
+
+            // Trigger WebAuthn Registration
+            const { credentialId, derivedSecret } = await registerCredential(username);
+
+            // Pass the derived secret to the main App flow (to get the address and log in)
+            onRegister(username, credentialId, derivedSecret);
+
+        } catch (error: any) {
+            toast.error(error.message || "Registration Failed");
+        } finally {
+            setIsRegistering(false);
+            setTimeout(() => setIsRippling(false), 600);
         }
     };
 
@@ -56,6 +64,7 @@ const RegisterTab = ({ onRegister }: RegisterTabProps) => {
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
                             placeholder="Enter unique username"
+                            disabled={isRegistering}
                             className="input-glow w-full pl-9 text-foreground placeholder:text-muted-foreground/50"
                         />
                     </div>
@@ -66,7 +75,7 @@ const RegisterTab = ({ onRegister }: RegisterTabProps) => {
             <div className="relative flex flex-col items-center py-8">
                 <button
                     onClick={handleFingerprintClick}
-                    disabled={!username}
+                    disabled={!username || isRegistering}
                     className={cn(
                         "relative w-28 h-28 rounded-full flex items-center justify-center transition-all duration-300",
                         "bg-gradient-to-br from-blue-500 to-purple-600",
@@ -82,16 +91,8 @@ const RegisterTab = ({ onRegister }: RegisterTabProps) => {
                 </button>
 
                 <p className="mt-4 text-sm font-medium text-muted-foreground">
-                    Touch to Register
+                    {isRegistering ? "Verifying..." : "Touch to Register"}
                 </p>
-
-                <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    className="hidden"
-                />
             </div>
         </div>
     );

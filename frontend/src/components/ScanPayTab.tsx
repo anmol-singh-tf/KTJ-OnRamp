@@ -3,9 +3,10 @@ import { Fingerprint, Scan, Camera, X } from "lucide-react";
 import { Html5Qrcode } from "html5-qrcode";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import { authenticateCredential } from "@/lib/webauthn";
 
 interface ScanPayTabProps {
-  onStartPayment: (receiver: string, amount: string, file: File) => void;
+  onStartPayment: (receiver: string, amount: string, prfSecret: string) => void;
   receiverAddress: string;
   setReceiverAddress: (value: string) => void;
   paymentAmount: string;
@@ -21,35 +22,43 @@ const ScanPayTab = ({
 }: ScanPayTabProps) => {
   const [isScanning, setIsScanning] = useState(false);
   const [isRippling, setIsRippling] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [scannerReady, setScannerReady] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannerContainerId = "qr-reader";
 
-  const handleFingerprintClick = () => {
+  const handleFingerprintClick = async () => {
     setIsRippling(true);
-    setTimeout(() => setIsRippling(false), 600);
-    
-    // Trigger hidden file input
-    fileInputRef.current?.click();
-  };
+    setIsAuthenticating(true);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && receiverAddress && paymentAmount) {
-      onStartPayment(receiverAddress, paymentAmount, file);
+    try {
+      const { derivedSecret } = await authenticateCredential();
+
+      if (receiverAddress && paymentAmount) {
+        onStartPayment(receiverAddress, paymentAmount, derivedSecret);
+      }
+
+    } catch (error: any) {
+      toast({
+        title: "Authentication Failed",
+        description: error.message || "Could not verify identity.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsAuthenticating(false);
+      setTimeout(() => setIsRippling(false), 600);
     }
   };
 
   const onScanSuccess = (decodedText: string) => {
     // Check if it's a valid Ethereum address
     let address = decodedText;
-    
+
     // Handle ethereum: URI scheme
     if (decodedText.startsWith("ethereum:")) {
       address = decodedText.replace("ethereum:", "").split("@")[0].split("?")[0];
     }
-    
+
     // Validate Ethereum address format
     if (address.match(/^0x[a-fA-F0-9]{40}$/)) {
       setReceiverAddress(address);
@@ -63,6 +72,8 @@ const ScanPayTab = ({
 
   const startScanner = async () => {
     try {
+      setIsScanning(true); // Show container FIRST so library can attach to it
+
       if (!scannerRef.current) {
         scannerRef.current = new Html5Qrcode(scannerContainerId);
       }
@@ -74,19 +85,18 @@ const ScanPayTab = ({
           qrbox: { width: 200, height: 200 },
         },
         onScanSuccess,
-        () => {} // Ignore errors during scanning
+        () => { } // Ignore errors during scanning
       );
-      
+
       setScannerReady(true);
-      setIsScanning(true);
     } catch (err) {
       console.error("Error starting scanner:", err);
+      setIsScanning(false); // Hide if failed
       toast({
         title: "Camera Error",
         description: "Could not access camera. Please check permissions.",
         variant: "destructive",
       });
-      setIsScanning(false);
     }
   };
 
@@ -144,8 +154,8 @@ const ScanPayTab = ({
             onClick={toggleScanner}
             className={cn(
               "flex items-center gap-1 text-xs px-3 py-1.5 rounded-full transition-all",
-              isScanning 
-                ? "bg-destructive/20 text-destructive hover:bg-destructive/30" 
+              isScanning
+                ? "bg-destructive/20 text-destructive hover:bg-destructive/30"
                 : "bg-primary/20 text-primary hover:bg-primary/30"
             )}
           >
@@ -183,8 +193,8 @@ const ScanPayTab = ({
           )}
 
           {/* QR Scanner Container */}
-          <div 
-            id={scannerContainerId} 
+          <div
+            id={scannerContainerId}
             className={cn(
               "w-full h-full",
               !isScanning && "hidden"
@@ -193,7 +203,7 @@ const ScanPayTab = ({
 
           {/* Placeholder when not scanning */}
           {!isScanning && (
-            <div 
+            <div
               className="absolute inset-0 bg-muted/50 flex items-center justify-center cursor-pointer"
               onClick={toggleScanner}
             >
@@ -250,7 +260,7 @@ const ScanPayTab = ({
       <div className="relative flex flex-col items-center py-8">
         <button
           onClick={handleFingerprintClick}
-          disabled={!receiverAddress || !paymentAmount}
+          disabled={!receiverAddress || !paymentAmount || isAuthenticating}
           className={cn(
             "relative w-28 h-28 rounded-full flex items-center justify-center transition-all duration-300",
             "bg-gradient-to-br from-primary to-secondary",
@@ -262,22 +272,13 @@ const ScanPayTab = ({
           {isRippling && (
             <div className="absolute inset-0 rounded-full bg-primary/30 animate-ripple" />
           )}
-          
+
           <Fingerprint className="w-12 h-12 text-primary-foreground" />
         </button>
-        
-        <p className="mt-4 text-sm font-medium text-muted-foreground">
-          Touch to Pay
-        </p>
 
-        {/* Hidden File Input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleFileChange}
-          className="hidden"
-        />
+        <p className="mt-4 text-sm font-medium text-muted-foreground">
+          {isAuthenticating ? "Verifying Biometrics..." : "Touch to Pay"}
+        </p>
       </div>
     </div>
   );

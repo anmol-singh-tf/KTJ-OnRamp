@@ -35,48 +35,30 @@ def agent_chat():
 @app.route('/register', methods=['POST'])
 def register():
     try:
-        username = request.form.get('username')
-        if not username:
-             return jsonify({'error': 'Username required'}), 400
+        username = request.json.get('username')
+        credential_id = request.json.get('credentialId')
+        prf_secret = request.json.get('prfSecret')
+
+        if not all([username, credential_id, prf_secret]):
+             return jsonify({'error': 'Missing registration data'}), 400
              
-        file = request.files['fingerprint']
-        if not file:
-            return jsonify({'error': 'No file uploaded'}), 400
-
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"{username}_reg_{file.filename}")
-        file.save(filepath)
-
-        # Generate Key and Helper Data
-        # Returns (key, helper_data)
-        key, helper_data = biometrics.derive_key(filepath)
+        # Generate Key from PRF Secret locally to get the address
+        key = biometrics.derive_key(prf_secret)
         
-        # Store helper data
-        # Helper data from fuzzy_extractor is a tuple/list. 
-        # If it's bytes (mock or single value), convert to hex/list.
-        if isinstance(helper_data, tuple):
-             # Recursively handle bytes in tuple if needed, but assuming list of simple types for strict fuzzy extractor
-             # For safety, let's just pickle or simplistic approach?
-             # Better: Convert items to list/hex if bytes
-             encoded_helper = []
-             for item in helper_data:
-                 if isinstance(item, bytes):
-                     encoded_helper.append(item.hex())
-                 elif isinstance(item, np.ndarray):
-                     encoded_helper.append(item.tolist())
-                 else:
-                     encoded_helper.append(item)
-             MOCK_DB[username] = encoded_helper
-        elif isinstance(helper_data, bytes):
-             MOCK_DB[username] = helper_data.hex()
-        else:
-             MOCK_DB[username] = helper_data
-
         # Derive Address for display
         account = Account.from_key(key)
         address = account.address
         
         # Cleanup key immediately
         del key
+        
+        # Store credential ID (and implicitly the user existence)
+        # We DO NOT store the prf_secret or the private key.
+        # helper_data is no longer needed because PRF is deterministic.
+        MOCK_DB[username] = {
+            'credential_id': credential_id,
+            'address': address
+        }
 
         return jsonify({
             'status': 'success',
@@ -90,32 +72,34 @@ def register():
 @app.route('/pay', methods=['POST'])
 def pay():
     try:
-        username = request.form.get('username')
-        receiver = request.form.get('receiver')
-        amount = request.form.get('amount')
-        file = request.files['fingerprint']
+        username = request.json.get('username')
+        receiver = request.json.get('receiver')
+        amount = request.json.get('amount')
+        prf_secret = request.json.get('prfSecret')
 
-        if not all([username, receiver, amount, file]):
-            return jsonify({'error': 'Missing data'}), 400
+        if not all([username, receiver, amount, prf_secret]):
+            return jsonify({'error': 'Missing payment data'}), 400
 
         if username not in MOCK_DB:
             return jsonify({'error': 'User not found'}), 404
 
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"{username}_pay_{file.filename}")
-        file.save(filepath)
-
-        helper_data = MOCK_DB[username]
-        # Serialize helper data to JSON string to pass to script
-        helper_data_json = json.dumps(helper_data)
-
-        # Call separate script
-        # python pay_script.py <receiver> <amount> <fingerprint_path> <helper_data_json>
+        # In a real app, we would verify the WebAuthn signature here using the stored Public Key (from credential_id).
+        # For this hackathon scope, we trust the PRF secret delivered by the authenticated client.
+        
+        # Serialize secret to pass to script (it's already hex string)
+        # We pass it as the "helper_data" argument for compatibility, or just add a new argument.
+        # Let's use the script's existing argument structure but repurpose.
+        
+        # pay_script.py expects: <receiver> <amount> <fingerprint_path> <helper_data_json>
+        # We will modify pay_script.py to accept the SECRET directly.
+        # Passing "PRF_MODE" as fingerprint_path to signal the script.
+        
         cmd = [
             'python', 'pay_script.py',
             receiver.strip(),
-            amount.strip(),
-            filepath,
-            helper_data_json
+            str(amount).strip(),
+            "PRF_MODE", # Signal to use PRF secret
+            prf_secret  # Passing secret in place of helper_data
         ]
 
         print("Running payment script...")
@@ -143,4 +127,5 @@ def pay():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    # Use adhoc SSL context for HTTPS (Requires 'pip install pyopenssl')
+    app.run(debug=True, port=5000, host='0.0.0.0', ssl_context='adhoc')
