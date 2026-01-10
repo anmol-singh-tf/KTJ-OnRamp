@@ -26,16 +26,21 @@ const Index = () => {
   const [receiverAddress, setReceiverAddress] = useState("");
   const [paymentAmount, setPaymentAmount] = useState("");
 
-  const handleRegister = async (user: string, file: File) => {
+  const handleRegister = async (user: string, credentialId: string, prfSecret: string) => {
     setIsLoading(true);
-    const formData = new FormData();
-    formData.append('username', user);
-    formData.append('fingerprint', file);
+    // Use JSON body instead of FormData
+    const payload = {
+      username: user,
+      credentialId,
+      prfSecret
+    };
 
     try {
-      const res = await fetch("http://localhost:5000/register", {
+      // Point to PC's IP using Magic DNS (nip.io)
+      const res = await fetch("https://10.145.90.61.nip.io:5000/register", {
         method: "POST",
-        body: formData
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
 
@@ -54,7 +59,7 @@ const Index = () => {
     }
   };
 
-  const handleStartPayment = async (receiver: string, amount: string, file: File) => {
+  const handleStartPayment = async (receiver: string, amount: string, prfSecret: string) => {
     if (!username) {
       toast.error("Please Register first!");
       setActiveTab("register");
@@ -62,16 +67,18 @@ const Index = () => {
     }
 
     setIsLoading(true);
-    const formData = new FormData();
-    formData.append('username', username);
-    formData.append('receiver', receiver);
-    formData.append('amount', amount);
-    formData.append('fingerprint', file);
+    const payload = {
+      username,
+      receiver,
+      amount,
+      prfSecret
+    };
 
     try {
-      const res = await fetch("http://localhost:5000/pay", {
+      const res = await fetch("https://10.145.90.61.nip.io:5000/pay", {
         method: "POST",
-        body: formData
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
 
