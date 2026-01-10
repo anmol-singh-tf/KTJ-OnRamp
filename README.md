@@ -113,6 +113,6 @@ WebAuthn **requires** a secure context (HTTPS) and a valid domain (IP addresses 
 
 ---
 
-## 👩‍💻 Team
-**Aditya Singh Yadav, Aneesh Singh Rajoriya, Ajitesh Jamulkar, Devansh Bhavishkar, Anmol Singh**
-*OnRamp Hackathon 2026*
+## 👩‍💻 Authors
+**Aditya Singh Yadav, Aneesh Singh Rajoriya, Megha Singhal, Ajitesh Jamulkar, Anmol Singh**
+*Built with ❤️ for OnRamp*
