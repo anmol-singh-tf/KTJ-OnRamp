@@ -36,8 +36,8 @@ const Index = () => {
     };
 
     try {
-      // Point to PC's IP using Magic DNS (nip.io)
-      const res = await fetch("https://10.145.90.61.nip.io:5000/register", {
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+      const res = await fetch(`${API_BASE_URL}/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -75,7 +75,8 @@ const Index = () => {
     };
 
     try {
-      const res = await fetch("https://10.145.90.61.nip.io:5000/pay", {
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+      const res = await fetch(`${API_BASE_URL}/pay`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)

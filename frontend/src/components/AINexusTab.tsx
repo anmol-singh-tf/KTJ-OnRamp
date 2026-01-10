@@ -50,7 +50,8 @@ const AINexusTab = ({ onAutoFill }: AINexusTabProps) => {
     setIsLoading(true);
 
     try {
-      const response = await fetch("https://10.145.90.61.nip.io:5000/agent/chat", {
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+      const response = await fetch(`${API_BASE_URL}/agent/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
