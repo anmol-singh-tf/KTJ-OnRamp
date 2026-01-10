@@ -17,7 +17,7 @@ const Header = () => {
         {/* Status Badge */}
         <div className="status-badge">
           <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
-          Connected: Polygon Amoy
+          Connected: Sepolia Testnet
         </div>
       </div>
     </header>
