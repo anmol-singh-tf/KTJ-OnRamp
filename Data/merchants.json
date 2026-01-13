@@ -1,0 +1,71 @@
+[
+  {
+    "name": "Coffee House",
+    "description": "A cozy neighborhood coffee shop serving premium coffee, pastries, and light meals. Perfect for morning coffee runs and afternoon work sessions.",
+    "receiver_address": "0x8bD0A4C1887cD12B07043F1F9bCa97D611C97233"
+  },
+  {
+    "name": "TechMart Electronics",
+    "description": "Electronics store specializing in smartphones, laptops, gadgets, and tech accessories. Offers the latest technology products and repair services.",
+    "receiver_address": "0x8bD0A4C1887cD12B07043F1F9bCa97D611C97233"
+  },
+  {
+    "name": "GreenGrocer Market",
+    "description": "Fresh produce market offering organic fruits, vegetables, dairy products, and pantry essentials. Known for locally sourced and sustainable products.",
+    "receiver_address": "0x8bD0A4C1887cD12B07043F1F9bCa97D611C97233"
+  },
+  {
+    "name": "BookNook Library",
+    "description": "Community library and bookstore with a vast collection of books, e-books, and reading spaces. Also hosts book clubs and author events.",
+    "receiver_address": "0x8bD0A4C1887cD12B07043F1F9bCa97D611C97233"
+  },
+  {
+    "name": "FitZone Gym",
+    "description": "Modern fitness center with state-of-the-art equipment, personal training services, group classes, and wellness programs.",
+    "receiver_address": "0x8bD0A4C1887cD12B07043F1F9bCa97D611C97233"
+  },
+  {
+    "name": "FoodExpress Delivery",
+    "description": "Food delivery service connecting customers with local restaurants. Fast delivery, wide variety of cuisines, and easy ordering.",
+    "receiver_address": "0x8bD0A4C1887cD12B07043F1F9bCa97D611C97233"
+  },
+  {
+    "name": "Indigo Airlines",
+    "description": "Indigo Airlines is a leading airline company that provides flights to various destinations. It is known for its affordable fares and on-time performance.",
+    "receiver_address": "0x8bD0A4C1887cD12B07043F1F9bCa97D611C97233"
+  },
+  {
+    "name": "Air India",
+    "description": "Air India is a leading airline company that provides flights to various destinations. It is known for its affordable fares and on-time performance.",
+    "receiver_address": "0x8bD0A4C1887cD12B07043F1F9bCa97D611C97233"
+  },
+  {
+    "name": "Jet Airways",
+    "description": "Jet Airways is a leading airline company that provides flights to various destinations. It is known for its affordable fares and on-time performance.",
+    "receiver_address": "0x8bD0A4C1887cD12B07043F1F9bCa97D611C97233"
+  },
+  {
+    "name": "Amazon",
+    "description": "Amazon is an online shopping platform that offers a wide range of products. It is known for its fast delivery and competitive prices.",
+    "receiver_address": "0x8bD0A4C1887cD12B07043F1F9bCa97D611C97233"
+  },
+  {
+    "name": "Flipkart",
+    "description": "Flipkart is an online shopping platform that offers a wide range of products. It is known for its fast delivery and competitive prices.",
+    "receiver_address": "0x8bD0A4C1887cD12B07043F1F9bCa97D611C97233"
+  },
+  {
+    "name": "testuser_1768337919",
+    "description": "Test merchant for API",
+    "receiver_address": "0x1234567890123456789012345678901234567890",
+    "business_type": "Coffee Shop",
+    "kyc_info": {}
+  },
+  {
+    "name": "testuser_1768337986",
+    "description": "Test merchant for API",
+    "receiver_address": "0x1234567890123456789012345678901234567890",
+    "business_type": "Coffee Shop",
+    "kyc_info": {}
+  }
+]
