@@ -8,6 +8,7 @@ import RegisterTab from "@/components/RegisterTab";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import SuccessOverlay from "@/components/SuccessOverlay";
 import { toast } from "sonner";
+import FingerprintScanner from "@/components/FingerprintScanner";
 
 type TabType = "register" | "scan" | "chat";
 
@@ -173,6 +174,9 @@ const Index = () => {
             <AINexusTab onAutoFill={handleAutoFill} />
           )}
         </div>
+
+
+        <FingerprintScanner />
       </main>
 
       {/* Overlays */}

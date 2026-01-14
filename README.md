@@ -85,7 +85,7 @@
     ```
     - **Output**: `Network: https://<YOUR-IP>:5173/`
 
-### Step 3: Mobile Connection (Crucial for Biometrics)
+### Step 3: Mobile Connection
 
 WebAuthn **requires** a secure context (HTTPS) and a valid domain (IP addresses are often blocked). We use **Magic DNS (nip.io)** to solve this.
 

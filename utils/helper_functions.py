@@ -2,7 +2,6 @@ import os
 import json
 import requests
 
-
 def register_merchant(account_address, name, business_type, description, kyc_info=None):
     """
     Registers a new merchant in Data/merchants.json if the name is unique.
@@ -87,3 +86,5 @@ def pay(apiendpoint, receiver_address, amount):
         return {"success": True, "tx_hash": response.json().get("tx_hash")}
     else:
         return {"success": False, "error": response.text}
+
+    

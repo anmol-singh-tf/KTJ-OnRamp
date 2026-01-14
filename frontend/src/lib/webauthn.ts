@@ -37,7 +37,6 @@ export const registerCredential = async (username: string) => {
         challenge,
         rp: {
             name: "OnRamp Crypto Wallet",
-            // id: window.location.hostname, // Removed to let browser default to effective domain
         },
         user: {
             id: userId,
@@ -76,8 +75,6 @@ export const registerCredential = async (username: string) => {
     const prfResults = extensionResults.prf;
 
     if (!prfResults || !prfResults.results || !prfResults.results.first) {
-        // Fallback: If PRF is not supported by browser/device, we can't derive the key.
-        // For this demo, we MUST throw because our whole architecture depends on it.
         throw new Error("Device does not support WebAuthn PRF extension (Secure Key Derivation). Please use Chrome/Edge on a supported device.");
     }
 
@@ -101,9 +98,7 @@ export const authenticateCredential = async () => {
         challenge,
         timeout: 60000,
         userVerification: "required",
-        // rpId: window.location.hostname, // Removed to let browser default to effective domain
         extensions: {
-            // @ts-ignore
             prf: {
                 eval: {
                     first: PRF_SALT,
@@ -116,9 +111,7 @@ export const authenticateCredential = async () => {
         publicKey: publicKeyCredentialRequestOptions,
     })) as PublicKeyCredential;
 
-    // Extract PRF output
     const extensionResults = credential.getClientExtensionResults();
-    // @ts-ignore
     const prfResults = extensionResults.prf;
 
     if (!prfResults || !prfResults.results || !prfResults.results.first) {

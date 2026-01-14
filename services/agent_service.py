@@ -2,27 +2,15 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from utils.helper_functions import pay as pay_helper
-
-from dotenv import load_dotenv
-import os
+from config import MERCHANTS, SPENDING_LIMIT_ETH, PAYMENT_API_ENDPOINT
+import requests
+from dotenv import load_dotenv 
 import json
-import random
 
 load_dotenv()
 
 # Initialize Gemini
 llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
-
-# Load merchants data
-MERCHANTS_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Data", "merchants.json")
-with open(MERCHANTS_FILE, 'r') as f:
-    MERCHANTS = json.load(f)
-
-# Spending limit (in ETH) - default 1 ETH
-SPENDING_LIMIT_ETH = float(os.getenv("SPENDING_LIMIT_ETH", "1.0"))
-
-# Hardcoded API endpoint for payments
-PAYMENT_API_ENDPOINT = os.getenv("PAYMENT_API_ENDPOINT", "http://localhost:5000/pay")
 
 @tool
 def pay(receiver_address: str, amount: float):
