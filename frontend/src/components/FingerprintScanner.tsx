@@ -1,15 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Fingerprint, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { useFingerprintStore } from '@/stores/fingerprintStore';
 import { bufferToHex, hexToBuffer } from '@/lib/webauthn';
-import { Fingerprint } from 'lucide-react';
 
-// Fixed salt for deterministic key derivation (same as webauthn.ts)
-const PRF_SALT = new TextEncoder().encode("OnRamp-Hackathon-Biometric-Salt-v1");
+// Fixed salt for deterministic key derivation
+const PRF_SALT = new TextEncoder().encode("NexPay-Biometric-Salt-v1");
 
-const FingerprintKeyGen: React.FC = () => {
-  const [status, setStatus] = useState<string>('Ready');
-  const [isScanning, setIsScanning] = useState(false);
+interface FingerprintScannerProps {
+  onSuccess?: (privateKey: string, address: string) => void;
+  onError?: (error: string) => void;
+  buttonText?: string;
+  showResult?: boolean;
+  compact?: boolean;
+}
+
+const FingerprintScanner: React.FC<FingerprintScannerProps> = ({
+  onSuccess,
+  onError,
+  buttonText = 'Scan to Authenticate',
+  showResult = true,
+  compact = false,
+}) => {
+  const [status, setStatus] = useState<'idle' | 'scanning' | 'success' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState<string>('');
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
 
   const { 
@@ -24,28 +39,24 @@ const FingerprintKeyGen: React.FC = () => {
 
   // Check expiration on mount and periodically update countdown
   useEffect(() => {
-    // Check if expired on mount
     if (isExpired() && privateKey) {
       clearPrivateKey();
-      setStatus('Session expired. Please scan again.');
+      setStatus('idle');
     }
 
-    // Update countdown every second
     const interval = setInterval(() => {
       const remaining = getTimeRemaining();
       setTimeRemaining(remaining);
 
-      // Auto-clear if expired
       if (remaining !== null && remaining <= 0 && privateKey) {
         clearPrivateKey();
-        setStatus('Session expired. Please scan again.');
+        setStatus('idle');
       }
     }, 1000);
 
     return () => clearInterval(interval);
   }, [privateKey, isExpired, getTimeRemaining, clearPrivateKey]);
 
-  // Format time remaining as MM:SS
   const formatTimeRemaining = (ms: number | null): string => {
     if (ms === null || ms <= 0) return '00:00';
     const totalSeconds = Math.floor(ms / 1000);
@@ -54,14 +65,34 @@ const FingerprintKeyGen: React.FC = () => {
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  const derivePrivateKeyFromSecret = (derivedSecret: string): string => {
+    let privKey = derivedSecret;
+    
+    if (privKey.length > 64) {
+      privKey = privKey.substring(0, 64);
+    } else if (privKey.length < 64) {
+      privKey = privKey.padEnd(64, '0');
+    }
+
+    const maxKey = '0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141';
+    let privKeyBigInt = BigInt('0x' + privKey);
+    const maxKeyBigInt = BigInt(maxKey);
+    
+    if (privKeyBigInt >= maxKeyBigInt) {
+      privKeyBigInt = privKeyBigInt % maxKeyBigInt;
+      privKey = privKeyBigInt.toString(16).padStart(64, '0');
+    }
+
+    return privKey;
+  };
+
   const startScan = async () => {
     try {
-      setIsScanning(true);
-      setStatus('Scanning...');
+      setStatus('scanning');
+      setErrorMessage('');
       
-      // Check if biometrics are supported
       if (!window.PublicKeyCredential) {
-        throw new Error("WebAuthn not supported");
+        throw new Error("WebAuthn not supported on this device");
       }
 
       let credential: PublicKeyCredential;
@@ -69,8 +100,7 @@ const FingerprintKeyGen: React.FC = () => {
       let currentCredentialId: string | null = credentialId;
       let authenticated = false;
 
-      // Always try to authenticate first (reuse existing credential if available)
-      // This ensures we use the same credential for consistent PRF output
+      // Try to authenticate with existing credential first
       try {
         const challenge = crypto.getRandomValues(new Uint8Array(32));
         
@@ -79,16 +109,15 @@ const FingerprintKeyGen: React.FC = () => {
           timeout: 60000,
           userVerification: "required",
           extensions: {
-            // @ts-ignore - prf types might be missing in standard lib
+            // @ts-ignore
             prf: {
               eval: {
                 first: PRF_SALT,
               },
             },
-          } as any,
+          } as AuthenticationExtensionsClientInputs,
         };
 
-        // If we have a stored credentialId, use it to ensure we get the same credential
         if (currentCredentialId) {
           const credentialIdBuffer = hexToBuffer(currentCredentialId);
           getOptions.allowCredentials = [{
@@ -96,7 +125,6 @@ const FingerprintKeyGen: React.FC = () => {
             type: "public-key",
           }];
         }
-        // Otherwise, let the browser choose any available credential
 
         credential = await navigator.credentials.get({
           publicKey: getOptions,
@@ -110,66 +138,60 @@ const FingerprintKeyGen: React.FC = () => {
         // @ts-ignore
         const prfResults = extensionResults.prf;
 
-        if (!prfResults || !prfResults.results || !prfResults.results.first) {
+        if (!prfResults?.results?.first) {
           throw new Error("Device failed to return PRF secret.");
         }
 
-        const derivedSecretBuffer = prfResults.results.first;
-        derivedSecret = bufferToHex(derivedSecretBuffer);
+        derivedSecret = bufferToHex(prfResults.results.first);
         
-        // Update credentialId if we got a different one (or didn't have one stored)
         const returnedCredentialId = bufferToHex(credential.rawId);
         if (returnedCredentialId !== currentCredentialId) {
           console.log('Updating credentialId:', returnedCredentialId);
           currentCredentialId = returnedCredentialId;
-        } else {
-          console.log('Reusing existing credentialId:', currentCredentialId);
         }
         
         authenticated = true;
       } catch (authError) {
-        // If authentication fails, we'll create a new credential below
-        console.log("Authentication failed, will create new credential...", authError);
+        console.log("Authentication failed, creating new credential...", authError);
         authenticated = false;
       }
 
-      // If authentication failed, create a new credential
+      // Create new credential if authentication failed
       if (!authenticated) {
         const challenge = crypto.getRandomValues(new Uint8Array(32));
-        const userId = new TextEncoder().encode("fingerprint-scanner-user");
+        const userId = new TextEncoder().encode("nexpay-user-" + Date.now());
         
         const createOptions: PublicKeyCredentialCreationOptions = {
           challenge,
           rp: {
-            name: "OnRamp Crypto Wallet",
+            name: "NexPay Crypto Wallet",
           },
           user: {
             id: userId,
-            name: "fingerprint@scanner.local",
-            displayName: "Fingerprint Scanner User",
+            name: "user@nexpay.local",
+            displayName: "NexPay User",
           },
           pubKeyCredParams: [
-            { alg: -7, type: "public-key" }, // ES256
-            { alg: -257, type: "public-key" }, // RS256
+            { alg: -7, type: "public-key" },
+            { alg: -257, type: "public-key" },
           ],
           timeout: 60000,
           attestation: "none",
           authenticatorSelection: {
-            authenticatorAttachment: "platform", // Forces TouchID/FaceID/Hello
+            authenticatorAttachment: "platform",
             userVerification: "required",
             requireResidentKey: true,
           },
           extensions: {
-            // @ts-ignore - prf types might be missing in standard lib
+            // @ts-ignore
             prf: {
               eval: {
                 first: PRF_SALT,
               },
             },
-          } as any,
+          } as AuthenticationExtensionsClientInputs,
         };
 
-        // Trigger the OS Fingerprint/FaceID prompt
         credential = await navigator.credentials.create({
           publicKey: createOptions,
         }) as PublicKeyCredential;
@@ -178,166 +200,183 @@ const FingerprintKeyGen: React.FC = () => {
           throw new Error("Failed to create credential");
         }
 
-        // Extract PRF output
         const extensionResults = credential.getClientExtensionResults();
         // @ts-ignore
         const prfResults = extensionResults.prf;
 
-        if (!prfResults || !prfResults.results || !prfResults.results.first) {
-          throw new Error("Device does not support WebAuthn PRF extension (Secure Key Derivation). Please use Chrome/Edge on a supported device.");
+        if (!prfResults?.results?.first) {
+          throw new Error("Device does not support secure biometric key derivation. Please use Chrome/Edge on a supported device.");
         }
 
-        const derivedSecretBuffer = prfResults.results.first;
-        derivedSecret = bufferToHex(derivedSecretBuffer);
-        
-        // Store the credential ID for future use
-        const newCredentialId = bufferToHex(credential.rawId);
-        
-        // Convert PRF secret to Ethereum private key
-        const privKey = derivePrivateKeyFromSecret(derivedSecret);
-
-        console.log('privKey', privKey);
-        
-        // Create wallet from private key
-        const wallet = new ethers.Wallet('0x' + privKey);
-        
-        // Store in Zustand store with credential ID (which handles expiration)
-        setPrivateKey('0x' + privKey, wallet.address, newCredentialId);
-        
-        setStatus('Success!');
-        return;
+        derivedSecret = bufferToHex(prfResults.results.first);
+        currentCredentialId = bufferToHex(credential.rawId);
       }
 
-      // If we authenticated with existing credential, derive and store the key
       const privKey = derivePrivateKeyFromSecret(derivedSecret);
-      
-      console.log('Derived privKey from existing credential:', privKey);
-      
-      // Create wallet from private key
       const wallet = new ethers.Wallet('0x' + privKey);
       
-      // Store in Zustand store with credentialId (which handles expiration)
-      // This ensures credentialId is persisted even if it was just discovered
-      setPrivateKey('0x' + privKey, wallet.address, currentCredentialId);
+      console.log('Wallet created successfully:', {
+        address: wallet.address,
+        privateKeyPrefix: '0x' + privKey.substring(0, 8) + '...',
+      });
       
-      setStatus('Success!');
-    } catch (err: any) {
-      console.error(err);
-      setStatus(`Error: ${err.message}`);
-    } finally {
-      setIsScanning(false);
+      setPrivateKey('0x' + privKey, wallet.address, currentCredentialId || undefined);
+      setStatus('success');
+      
+      onSuccess?.('0x' + privKey, wallet.address);
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'An unknown error occurred';
+      console.error('Fingerprint scan error:', err);
+      setErrorMessage(errorMsg);
+      setStatus('error');
+      onError?.(errorMsg);
     }
-  };
-
-  // Helper function to derive a valid Ethereum private key from PRF secret
-  const derivePrivateKeyFromSecret = (derivedSecret: string): string => {
-    // Convert PRF secret to Ethereum private key
-    // The PRF secret is 32 bytes (64 hex chars), which is perfect for Ethereum private keys
-    // Ensure it's a valid private key (must be less than secp256k1 curve order)
-    let privKey = derivedSecret;
-    
-    // If the hex string is too long, truncate it; if too short, pad it
-    if (privKey.length > 64) {
-      privKey = privKey.substring(0, 64);
-    } else if (privKey.length < 64) {
-      privKey = privKey.padEnd(64, '0');
-    }
-
-    // Ensure the private key is valid (less than secp256k1 curve order)
-    const maxKey = '0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141';
-    let privKeyBigInt = BigInt('0x' + privKey);
-    const maxKeyBigInt = BigInt(maxKey);
-    
-    if (privKeyBigInt >= maxKeyBigInt) {
-      // Reduce modulo curve order if too large
-      privKeyBigInt = privKeyBigInt % maxKeyBigInt;
-      privKey = privKeyBigInt.toString(16).padStart(64, '0');
-    }
-
-    return privKey;
   };
 
   const handleClear = () => {
     clearPrivateKey();
-    setStatus('Ready');
+    setStatus('idle');
     setTimeRemaining(null);
   };
 
-  return (
-    <div className="glass p-6 space-y-6">
-      <div className="text-center">
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/30 mb-4">
-          <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-          <span className="text-sm font-medium text-primary">Fingerprint Key Generator</span>
-        </div>
-        <h3 className="text-2xl font-bold text-foreground mb-2">Fingerprint Private Key Generator</h3>
-        <p className="text-muted-foreground text-sm">
-          Generate a deterministic Ethereum private key from your biometric data
-        </p>
-      </div>
+  const buttonSize = compact ? 'w-20 h-20' : 'w-28 h-28';
+  const iconSize = compact ? 'w-8 h-8' : 'w-12 h-12';
 
-      <div className="text-center">
-        <p className="text-sm text-muted-foreground mb-2">
-          Status: <strong className="text-foreground">{status}</strong>
-        </p>
-        
-        {timeRemaining !== null && timeRemaining > 0 && (
-          <p className="text-xs text-muted-foreground mb-4">
-            Expires in: <span className="font-mono font-semibold text-primary">{formatTimeRemaining(timeRemaining)}</span>
-          </p>
-        )}
-      </div>
-      
-      <div className="flex justify-center">
-        <button
+  return (
+    <div className="flex flex-col items-center space-y-4">
+      {/* Fingerprint Button */}
+      <div className="relative">
+        <motion.button
           onClick={startScan}
-          disabled={isScanning}
+          disabled={status === 'scanning'}
           className={`
-            relative w-28 h-28 rounded-full flex items-center justify-center transition-all duration-300
-            bg-gradient-to-br from-primary to-secondary
-            disabled:opacity-40 disabled:cursor-not-allowed
-            ${!isScanning && !privateKey ? 'animate-pulse-glow' : ''}
+            relative ${buttonSize} rounded-full flex items-center justify-center
+            bg-gradient-primary transition-all duration-300
+            disabled:opacity-60 disabled:cursor-not-allowed
             hover:scale-105 active:scale-95
           `}
+          whileTap={{ scale: 0.95 }}
+          animate={status === 'idle' ? { boxShadow: ['0 0 20px -5px hsl(175 80% 40% / 0.4)', '0 0 40px -5px hsl(175 80% 40% / 0.7)', '0 0 20px -5px hsl(175 80% 40% / 0.4)'] } : {}}
+          transition={{ duration: 2, repeat: status === 'idle' ? Infinity : 0 }}
         >
-          <Fingerprint className="w-12 h-12 text-primary-foreground" />
-          {isScanning && (
-            <div className="absolute inset-0 rounded-full bg-primary/30 animate-ping" />
+          <AnimatePresence mode="wait">
+            {status === 'scanning' ? (
+              <motion.div
+                key="scanning"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+              >
+                <Loader2 className={`${iconSize} text-primary-foreground animate-spin`} />
+              </motion.div>
+            ) : status === 'success' ? (
+              <motion.div
+                key="success"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+              >
+                <CheckCircle2 className={`${iconSize} text-primary-foreground`} />
+              </motion.div>
+            ) : status === 'error' ? (
+              <motion.div
+                key="error"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+              >
+                <AlertCircle className={`${iconSize} text-primary-foreground`} />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="idle"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+              >
+                <Fingerprint className={`${iconSize} text-primary-foreground`} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Pulse rings when scanning */}
+          {status === 'scanning' && (
+            <>
+              <motion.div 
+                className="absolute inset-0 rounded-full border-2 border-primary/50"
+                animate={{ scale: [1, 1.5], opacity: [0.5, 0] }}
+                transition={{ duration: 1, repeat: Infinity }}
+              />
+              <motion.div 
+                className="absolute inset-0 rounded-full border-2 border-primary/30"
+                animate={{ scale: [1, 1.8], opacity: [0.3, 0] }}
+                transition={{ duration: 1, repeat: Infinity, delay: 0.3 }}
+              />
+            </>
           )}
-        </button>
+        </motion.button>
       </div>
 
-      {walletAddress && privateKey && (
-        <div className="glass-strong p-4 rounded-xl space-y-3 animate-fade-in">
+      {/* Status Text */}
+      <motion.p 
+        className="text-sm font-medium text-center"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+      >
+        {status === 'scanning' && (
+          <span className="text-primary">Scanning biometrics...</span>
+        )}
+        {status === 'idle' && (
+          <span className="text-muted-foreground">{buttonText}</span>
+        )}
+        {status === 'success' && (
+          <span className="text-success">Authentication successful!</span>
+        )}
+        {status === 'error' && (
+          <span className="text-destructive">{errorMessage}</span>
+        )}
+      </motion.p>
+
+      {/* Time Remaining */}
+      {timeRemaining !== null && timeRemaining > 0 && status === 'success' && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-xs text-muted-foreground"
+        >
+          Session expires in: <span className="font-mono text-primary">{formatTimeRemaining(timeRemaining)}</span>
+        </motion.div>
+      )}
+
+      {/* Result Card */}
+      {showResult && walletAddress && privateKey && status === 'success' && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full glass rounded-xl p-4 space-y-3"
+        >
           <div>
-            <p className="text-xs text-muted-foreground mb-1">ETH Address</p>
-            <p className="font-mono text-sm text-foreground break-all bg-muted/30 p-2 rounded">
+            <p className="text-xs text-muted-foreground mb-1">Your Wallet Address</p>
+            <p className="font-mono text-sm text-foreground break-all bg-secondary/50 p-2 rounded-lg">
               {walletAddress}
             </p>
           </div>
           
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Derived Private Key</p>
-            <p className="font-mono text-xs text-foreground break-all bg-muted/30 p-2 rounded">
-              {privateKey.substring(0, 20)}...{privateKey.substring(privateKey.length - 8)}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 pt-2">
-            <small className="text-xs text-destructive flex-1">
-              ⚠️ For demo purposes only. Never expose full keys.
-            </small>
+          <div className="flex items-center justify-between pt-2">
+            <span className="text-xs text-muted-foreground">
+              ✓ Ready to send/receive payments
+            </span>
             <button
               onClick={handleClear}
-              className="text-xs px-3 py-1.5 rounded-full bg-destructive/20 text-destructive hover:bg-destructive/30 transition-colors"
+              className="text-xs px-3 py-1.5 rounded-full bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
             >
               Clear
             </button>
           </div>
-        </div>
+        </motion.div>
       )}
     </div>
   );
 };
 
-export default FingerprintKeyGen;
+export default FingerprintScanner;

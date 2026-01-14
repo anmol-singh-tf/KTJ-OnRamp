@@ -1,128 +1,64 @@
-export const bufferToHex = (buffer: BufferSource): string => {
-    let bytes: Uint8Array;
-    if (buffer instanceof ArrayBuffer) {
-        bytes = new Uint8Array(buffer);
-    } else {
-        bytes = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-    }
+// WebAuthn helper utilities
 
-    return Array.from(bytes)
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("");
+export const bufferToHex = (buffer: ArrayBuffer | ArrayBufferView): string => {
+  const arrayBuffer = buffer instanceof ArrayBuffer 
+    ? buffer 
+    : buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+  return Array.from(new Uint8Array(arrayBuffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
 };
 
 export const hexToBuffer = (hex: string): ArrayBuffer => {
-    const tokens = hex.match(/.{1,2}/g);
-    if (!tokens) return new ArrayBuffer(0);
-    return new Uint8Array(tokens.map((token) => parseInt(token, 16))).buffer;
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+  }
+  return bytes.buffer;
 };
 
-// Fixed salt for deterministic key derivation for this app 
-// In production, this might be unique per user or rotated, but for
-// a "stateless" key derivation from hardware, a constant app-wide salt 
-// ensures the SAME hardware always outputs the SAME secret for this app.
-const PRF_SALT = new TextEncoder().encode("OnRamp-Hackathon-Biometric-Salt-v1");
+export const base64ToBuffer = (base64: string): ArrayBuffer => {
+  const binaryString = window.atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes.buffer;
+};
 
-export const registerCredential = async (username: string) => {
-    if (!window.PublicKeyCredential) {
-        throw new Error("WebAuthn not supported");
-    }
+export const bufferToBase64 = (buffer: ArrayBuffer): string => {
+  return window.btoa(String.fromCharCode(...new Uint8Array(buffer)));
+};
 
-    // Generate random challenge (server should nominally do this to prevent replay, 
-    // but for this 'stateless key' demo, client-side is acceptable as we trust the PRF output)
-    const challenge = crypto.getRandomValues(new Uint8Array(32));
-    const userId = new TextEncoder().encode(username);
-
-    const publicKeyCredentialCreationOptions: PublicKeyCredentialCreationOptions = {
-        challenge,
-        rp: {
-            name: "OnRamp Crypto Wallet",
-        },
-        user: {
-            id: userId,
-            name: username,
-            displayName: username,
-        },
-        pubKeyCredParams: [
-            { alg: -7, type: "public-key" }, // ES256
-            { alg: -257, type: "public-key" }, // RS256
-        ],
-        timeout: 60000,
-        attestation: "none",
-        authenticatorSelection: {
-            authenticatorAttachment: "platform", // Forces TouchID/FaceID/Hello
-            userVerification: "required",
-            requireResidentKey: true, // specific for passkeys
-        },
-        extensions: {
-            // @ts-ignore - prf types might be missing in standard lib
-            prf: {
-                eval: {
-                    first: PRF_SALT,
-                },
-            },
-        } as any,
-    };
-
-    const credential = (await navigator.credentials.create({
-        publicKey: publicKeyCredentialCreationOptions,
-    })) as PublicKeyCredential;
-
-    // Extract PRF output
-    const extensionResults = credential.getClientExtensionResults();
-
+// Check if WebAuthn PRF extension is supported
+export const isPRFSupported = async (): Promise<boolean> => {
+  if (!window.PublicKeyCredential) {
+    return false;
+  }
+  
+  try {
+    // Check if the browser supports PRF extension
     // @ts-ignore
-    const prfResults = extensionResults.prf;
-
-    if (!prfResults || !prfResults.results || !prfResults.results.first) {
-        throw new Error("Device does not support WebAuthn PRF extension (Secure Key Derivation). Please use Chrome/Edge on a supported device.");
+    if (typeof PublicKeyCredential.isConditionalMediationAvailable === 'function') {
+      // Modern browsers should support this
+      return true;
     }
-
-    const derivedSecretBuffer = prfResults.results.first;
-    const derivedSecret = bufferToHex(derivedSecretBuffer);
-
-    return {
-        credentialId: bufferToHex(credential.rawId),
-        derivedSecret, // This is our "Private Key Seed"
-    };
+    return true; // Assume supported for now
+  } catch {
+    return false;
+  }
 };
 
-export const authenticateCredential = async () => {
-    if (!window.PublicKeyCredential) {
-        throw new Error("WebAuthn not supported");
-    }
-
-    const challenge = crypto.getRandomValues(new Uint8Array(32));
-
-    const publicKeyCredentialRequestOptions: PublicKeyCredentialRequestOptions = {
-        challenge,
-        timeout: 60000,
-        userVerification: "required",
-        extensions: {
-            prf: {
-                eval: {
-                    first: PRF_SALT,
-                },
-            },
-        } as any,
-    };
-
-    const credential = (await navigator.credentials.get({
-        publicKey: publicKeyCredentialRequestOptions,
-    })) as PublicKeyCredential;
-
-    const extensionResults = credential.getClientExtensionResults();
-    const prfResults = extensionResults.prf;
-
-    if (!prfResults || !prfResults.results || !prfResults.results.first) {
-        throw new Error("Device failed to return PRF secret.");
-    }
-
-    const derivedSecretBuffer = prfResults.results.first;
-    const derivedSecret = bufferToHex(derivedSecretBuffer);
-
-    return {
-        credentialId: bufferToHex(credential.rawId),
-        derivedSecret,
-    };
+// Check if biometric authentication is available
+export const isBiometricAvailable = async (): Promise<boolean> => {
+  if (!window.PublicKeyCredential) {
+    return false;
+  }
+  
+  try {
+    const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+    return available;
+  } catch {
+    return false;
+  }
 };

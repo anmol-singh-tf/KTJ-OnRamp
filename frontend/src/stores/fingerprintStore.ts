@@ -1,19 +1,29 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 interface FingerprintState {
   privateKey: string | null;
   walletAddress: string | null;
   expiresAt: number | null;
   credentialId: string | null;
+  userName: string | null;
+  isRegistered: boolean;
+  isBusiness: boolean;
+  businessName: string | null;
+  businessDescription: string | null;
+  isKycVerified: boolean;
   setPrivateKey: (privKey: string, address: string, credentialId?: string) => void;
+  setUserName: (name: string) => void;
+  setBusinessInfo: (name: string, description: string) => void;
+  setKycVerified: (verified: boolean) => void;
+  setRegistered: (registered: boolean) => void;
   clearPrivateKey: () => void;
   clearAll: () => void;
   isExpired: () => boolean;
   getTimeRemaining: () => number | null;
 }
 
-const STORAGE_KEY = 'fingerprint-wallet-storage';
+const STORAGE_KEY = 'nexpay-wallet-storage';
 const MIN_EXPIRATION_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_EXPIRATION_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -32,6 +42,12 @@ export const useFingerprintStore = create<FingerprintState>()(
       walletAddress: null,
       expiresAt: null,
       credentialId: null,
+      userName: null,
+      isRegistered: false,
+      isBusiness: false,
+      businessName: null,
+      businessDescription: null,
+      isKycVerified: false,
 
       setPrivateKey: (privKey: string, address: string, credentialId?: string) => {
         const expiresAt = generateExpirationTime();
@@ -43,24 +59,47 @@ export const useFingerprintStore = create<FingerprintState>()(
         });
       },
 
+      setUserName: (name: string) => {
+        set({ userName: name });
+      },
+
+      setBusinessInfo: (name: string, description: string) => {
+        set({ 
+          isBusiness: true,
+          businessName: name, 
+          businessDescription: description 
+        });
+      },
+
+      setKycVerified: (verified: boolean) => {
+        set({ isKycVerified: verified });
+      },
+
+      setRegistered: (registered: boolean) => {
+        set({ isRegistered: registered });
+      },
+
       clearPrivateKey: () => {
-        // Preserve credentialId so we can reuse the same credential
-        // Only clear the private key and wallet data
         set((state) => ({
           privateKey: null,
           walletAddress: null,
           expiresAt: null,
-          credentialId: state.credentialId, // Keep credentialId for reuse
+          credentialId: state.credentialId,
         }));
       },
       
-      // Separate method to completely reset (including credentialId)
       clearAll: () => {
         set({
           privateKey: null,
           walletAddress: null,
           expiresAt: null,
           credentialId: null,
+          userName: null,
+          isRegistered: false,
+          isBusiness: false,
+          businessName: null,
+          businessDescription: null,
+          isKycVerified: false,
         });
       },
 
@@ -79,35 +118,7 @@ export const useFingerprintStore = create<FingerprintState>()(
     }),
     {
       name: STORAGE_KEY,
-      // Custom storage to handle expiration on load
-      storage: {
-        getItem: (name: string) => {
-          const str = localStorage.getItem(name);
-          if (!str) return null;
-          
-          try {
-            const parsed = JSON.parse(str);
-            const state = parsed.state;
-            
-            // Check if expired
-            if (state.expiresAt && Date.now() >= state.expiresAt) {
-              // Clear expired data
-              localStorage.removeItem(name);
-              return null;
-            }
-            
-            return parsed;
-          } catch {
-            return null;
-          }
-        },
-        setItem: (name: string, value: string) => {
-          localStorage.setItem(name, value);
-        },
-        removeItem: (name: string) => {
-          localStorage.removeItem(name);
-        },
-      },
+      storage: createJSONStorage(() => localStorage),
     }
   )
 );
