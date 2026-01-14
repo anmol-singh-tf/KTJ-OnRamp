@@ -1,19 +1,16 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 /* 
   NexPay - Next Generation Crypto Payment Design System
   A modern, fintech-inspired design with vibrant purple/blue gradients
 */
 
+/* Font imports must come before all other CSS rules */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
-
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
-
 @import url("https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&display=swap");
-
 @import url("https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 @layer base {
   :root {

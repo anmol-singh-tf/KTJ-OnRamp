@@ -16,6 +16,7 @@ import { useFingerprintStore } from '@/stores/fingerprintStore';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 type RegistrationStep = 'choose' | 'personal' | 'business' | 'kyc' | 'complete';
 
@@ -35,14 +36,50 @@ const Register: React.FC = () => {
     setKycVerified,
     setRegistered 
   } = useFingerprintStore();
+  const saveRegistration = async ({
+    username,
+    wallet_address,
+    description,
+    business_type,
+  }: {
+    username: string,
+    wallet_address: string,
+    description: string,
+    business_type: string,
+  }) => {
+    console.log('Saving registration:', { username, wallet_address, description, business_type });
+    try {
+      
+      const res = await fetch(`${BACKEND_URL || ''}/register`, {
+        method: "POST",
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username,
+          wallet_address,
+          description,
+          business_type,
+        }),
+      });
+      if (!res.ok) {
+        throw new Error("Failed to register");
+      }
+      return await res.json();
+    } catch (e: any) {
+      console.error("Registration API error:", e);
+      toast.error('Could not save registration. Please try again.');
+      return null;
+    }
+  };
 
-  const handleFingerprintSuccess = (privateKey: string, address: string) => {
+  const handleFingerprintSuccess = async (privateKey: string, address: string) => {
     console.log('Fingerprint registered:', { address, privateKeyPrefix: privateKey.substring(0, 10) + '...' });
     
     if (step === 'personal') {
       if (userName.trim()) {
         storeSetUserName(userName.trim());
-      }
+      } 
       setRegistered(true);
       setStep('complete');
       toast.success('Registration successful!');
@@ -55,7 +92,19 @@ const Register: React.FC = () => {
       }
       setRegistered(true);
       setStep('complete');
-      toast.success('Business registered successfully!');
+
+      if (isBusinessRegistration) {
+        const registration_response = await saveRegistration({
+          username: userName,
+          wallet_address: address,  
+          description: businessDescription,
+          business_type: 'business',
+        });
+        console.log('Registration response:', registration_response);
+        toast.success('Business registered successfully!');
+      } else {
+        toast.success('Personal registered successfully!');
+      }
     }
   };
 
@@ -67,6 +116,7 @@ const Register: React.FC = () => {
     setKycSubmitted(true);
     toast.dismiss();
     toast.success('KYC submitted successfully!');
+   
   };
 
   const containerVariants = {

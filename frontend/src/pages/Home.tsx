@@ -8,6 +8,25 @@ import FeatureCarousel from '@/components/FeatureCarousel';
 import FAQ from '@/components/FAQ';
 import GettingStarted from '@/components/GettingStarted';
 import heroPaymentImg from '@/assets/hero-payment.png';
+import { ethers } from 'ethers';
+import { useQuery } from '@tanstack/react-query';
+
+const SEPOLIA_RPC_URL = import.meta.env.SEPOLIA_RPC_URL||'https://sepolia.infura.io/v3/a1cf6b93c95b4e079a21fa4fca874411';
+
+const getSepoliaBalance = async (address: string): Promise<string> => {
+  try {
+    // 1. Initialize the Provider (Infura)
+    const provider = new ethers.providers.JsonRpcProvider(SEPOLIA_RPC_URL);
+    // 2. Fetch balance in Wei
+    const balanceWei = await provider.getBalance(address);
+    // 3. Convert Wei to readable Ether
+    const balanceEth = ethers.utils.formatEther(balanceWei);
+    return balanceEth;
+  } catch (error) {
+    console.error("Error fetching balance:", error);
+    return '0.0';
+  }
+};
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -19,6 +38,16 @@ const Home: React.FC = () => {
     'Instant Settlements',
     'Biometric Security',
   ];
+
+  const { data: balance, isLoading } = useQuery({
+    queryKey: ['sepoliaBalance', walletAddress],
+    queryFn: () => getSepoliaBalance(walletAddress!),
+    enabled: !!walletAddress && ethers.utils.isAddress(walletAddress),
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+
+  // Format balance for display
+  const displayBalance = balance ? parseFloat(balance).toFixed(4) : '0.0000';
 
   return (
     <div className="min-h-screen pb-24">
@@ -41,10 +70,14 @@ const Home: React.FC = () => {
                   {isBusiness ? businessName : `Welcome back, ${userName || 'User'}`}
                 </p>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-4xl font-display font-bold text-foreground">0.00</span>
+                  {isLoading ? (
+                    <span className="text-4xl font-display font-bold text-muted-foreground">...</span>
+                  ) : (
+                    <span className="text-4xl font-display font-bold text-foreground">{displayBalance}</span>
+                  )}
                   <span className="text-lg text-muted-foreground">ETH</span>
                 </div>
-                <p className="text-sm text-muted-foreground mt-1">≈ $0.00 USD</p>
+               
                 <div className="flex items-center gap-3 mt-6">
                   <motion.button whileTap={{ scale: 0.95 }} onClick={() => navigate('/pay')}
                     className="flex-1 flex items-center justify-center gap-2 py-3 bg-gradient-primary text-primary-foreground rounded-xl font-medium">

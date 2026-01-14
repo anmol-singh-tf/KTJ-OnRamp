@@ -28,21 +28,17 @@ def pay(receiver_address: str, amount: float):
         dict: { "success": True, "merchant": "<name>", "message": "<message>" } if validation passes,
               or { "success": False, "error": "<message>" } if validation fails
     """
-    # Validate amount against spending limit
+
     if amount > SPENDING_LIMIT_ETH:
         return {
             "success": False,
             "error": f"Amount {amount} ETH exceeds spending limit of {SPENDING_LIMIT_ETH} ETH. Please reduce the amount."
         }
-
-    # Validate amount is positive
     if amount <= 0:
         return {
             "success": False,
             "error": f"Amount must be greater than 0. Received: {amount} ETH"
         }
-
-    # Find the merchant by receiver address
     merchant = None
     for m in MERCHANTS:
         if m.get("receiver_address", "").lower() == receiver_address.lower():
@@ -119,15 +115,20 @@ def web_search(query: str) -> str:
 tools = [pay, web_search]
 llm_with_tools = llm.bind_tools(tools)
 
-def run_agent(user_input):
+def run_agent(user_input, max_iterations=3):
+    """
+    Runs the agent LLM for payment workflow, allowing for multiple sequential tool (pay) calls.
+    If at any step the agent chooses to end the conversation (not call a tool), returns the final answer.
+    """
     try:
         # Format merchants information for the prompt
         merchants_info = "\n".join([
             f"- {m['name']}: {m['description']} (Address: {m['receiver_address']})"
             for m in MERCHANTS
         ])
-        
-        # Direct invocation with tools
+        print(f"User input: {user_input}")
+
+        # Prepare system prompt, as before
         messages = [
             SystemMessage(content=f"""You are a helpful payment assistant for a Crypto Wallet. 
             You help users make payments to merchants using natural language.
@@ -160,6 +161,8 @@ def run_agent(user_input):
             After you have validated the payment (or if no payment is needed), you MUST return your final response as a RAW JSON string with exactly two keys:
             1. "text": A friendly summary of what happened (success message if validation passed, or error explanation if validation failed).
             2. "auto_fill": An object with "receiver" (merchant address) and "amount" (in ETH as string) if validation was successful. If validation failed or no transaction is needed, return null.
+
+            The user may mention multiple payments in one message. You may choose to run the 'pay' tool multiple times (up to 3 payments in a session), or choose to end the conversation if all payments are validated.
             
             Example auto_fill format: {{"receiver": "0x71C7656EC7ab88b098defB751B7401B5f6d8976F", "amount": "0.05"}}
             
@@ -167,43 +170,67 @@ def run_agent(user_input):
             """),
             HumanMessage(content=user_input)
         ]
-        
-        # 1. Let the model choose to call a tool
-        ai_msg = llm_with_tools.invoke(messages)
-        
-        # 2. If tool call
-        if ai_msg.tool_calls:
-            messages.append(ai_msg)
-            for tool_call in ai_msg.tool_calls:
-                if tool_call["name"] == "pay":
-                    tool_output = pay.invoke(tool_call["args"])
-                    messages.append(ToolMessage(content=json.dumps(tool_output), tool_call_id=tool_call["id"]))
-            
-            # 3. Get final response based on tool output
-            final_resp = llm_with_tools.invoke(messages)
-            output_str = final_resp.content
-        else:
-            output_str = ai_msg.content
 
-        # Handle case where Gemini/LangChain returns a list of content parts
+        iteration = 0
+        while iteration < max_iterations:
+            # 1. LLM responds (may or may not call a tool)
+            ai_msg = llm_with_tools.invoke(messages)
+            print(f"###AI message (iteration {iteration}): {ai_msg}")
+
+            # If there are tool calls (possibly several per response)
+            if getattr(ai_msg, "tool_calls", None):
+                messages.append(ai_msg)
+                tool_call_occurred = False
+                for tool_call in ai_msg.tool_calls:
+                    if tool_call["name"] == "pay":
+                        tool_output = pay.invoke(tool_call["args"])
+                        messages.append(ToolMessage(content=json.dumps(tool_output), tool_call_id=tool_call["id"]))
+                        tool_call_occurred = True
+                iteration += 1
+                continue  
+            else:
+                output_str = ai_msg.content
+                if isinstance(output_str, list):
+                    cleaned_parts = []
+                    for part in output_str:
+                        if isinstance(part, str):
+                            cleaned_parts.append(part)
+                        elif isinstance(part, dict) and "text" in part:
+                            cleaned_parts.append(part["text"])
+                        else:
+                            cleaned_parts.append(str(part))
+                    output_str = "".join(cleaned_parts)
+
+                # Clean up Markdown if model adds it despite instructions
+                if "```json" in output_str:
+                    output_str = output_str.split("```json")[1].split("```")[0].strip()
+                elif "```" in output_str:
+                    output_str = output_str.split("```")[1].split("```")[0].strip()
+
+                try:
+                    parsed = json.loads(output_str)
+                    return parsed
+                except json.JSONDecodeError:
+                    return {
+                        "text": output_str,
+                        "auto_fill": None
+                    }
+        ai_msg = llm_with_tools.invoke(messages)
+        output_str = ai_msg.content
         if isinstance(output_str, list):
-            # Join all string parts, extracting 'text' from dicts if needed
             cleaned_parts = []
             for part in output_str:
                 if isinstance(part, str):
                     cleaned_parts.append(part)
                 elif isinstance(part, dict) and "text" in part:
-                     cleaned_parts.append(part["text"])
+                    cleaned_parts.append(part["text"])
                 else:
                     cleaned_parts.append(str(part))
             output_str = "".join(cleaned_parts)
-
-        # Clean up Markdown if model adds it despite instructions
         if "```json" in output_str:
             output_str = output_str.split("```json")[1].split("```")[0].strip()
         elif "```" in output_str:
             output_str = output_str.split("```")[1].split("```")[0].strip()
-
         try:
             parsed = json.loads(output_str)
             return parsed
@@ -212,8 +239,8 @@ def run_agent(user_input):
                 "text": output_str,
                 "auto_fill": None
             }
-            
     except Exception as e:
+        print(f"Error: {e}")
         return {
             "text": f"Agent Error: {str(e)}",
             "auto_fill": None

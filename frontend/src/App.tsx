@@ -10,6 +10,7 @@ import AIChat from "./pages/AIChat";
 import NotFound from "./pages/NotFound";
 import Header from "./components/Header";
 import BottomNav from "./components/BottomNav";
+import { AgentAuthorizationManager } from "./components/AgentAuthorizationModal";
 
 const queryClient = new QueryClient();
 
@@ -19,16 +20,19 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen bg-background flex flex-col">
           <Header />
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/pay" element={<Pay />} />
-            <Route path="/ai" element={<AIChat />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <div className="flex-1 pb-100">
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/pay" element={<Pay />} />
+              <Route path="/ai" element={<AIChat />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </div>
           <BottomNav />
+          <AgentAuthorizationManager />
         </div>
       </BrowserRouter>
     </TooltipProvider>

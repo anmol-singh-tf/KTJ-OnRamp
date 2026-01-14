@@ -68,6 +68,15 @@
     ```bash
     pip install -r requirements.txt
     ```
+4.  Set Environment Variables:
+    ```bash
+    cp .env.example .env
+    ```
+    - Edit `.env` to set your API key and other configurations.
+5.  Run the backend:
+    ```bash
+    uvicorn app:app --reload --port 5000
+    ```
 
 ### Step 2: Frontend Setup
 

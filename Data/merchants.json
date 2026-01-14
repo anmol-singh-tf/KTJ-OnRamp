@@ -67,5 +67,12 @@
     "receiver_address": "0x1234567890123456789012345678901234567890",
     "business_type": "Coffee Shop",
     "kyc_info": {}
+  },
+  {
+    "name": "jfwfe",
+    "description": "ghrehh",
+    "receiver_address": "0x1f3194Edfb4eBE65428CE57A800B66eAa81F1E8F",
+    "business_type": "business",
+    "kyc_info": {}
   }
 ]

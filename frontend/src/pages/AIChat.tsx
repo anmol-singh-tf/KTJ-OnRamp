@@ -57,7 +57,24 @@ const AIChat: React.FC = () => {
       // In production, this would call your AI server
       console.log('Sending to AI server:', { message: userMessage });
       
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // INSERT_YOUR_CODE
+      // Call backend /agent/chat API for AI response
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/agent/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: userMessage, userName }),
+      });
+      if (!response.ok) throw new Error('Failed to get response from AI server');
+      const data = await response.json();
+      console.log('###Data:', data);
+
+      addMessage({
+        role: 'assistant',
+        content: data.text || 'Sorry, I could not generate a reply this time.',
+      });
 
       // Simulate AI response based on keywords
       let aiResponse = '';
@@ -183,7 +200,7 @@ const AIChat: React.FC = () => {
       )}
 
       {/* Input */}
-      <div className="p-4 glass border-t border-border">
+      <div className="p-4 glass border-t border-border mb-20">
         <div className="flex items-center gap-2">
           <Input
             value={inputValue}
@@ -246,7 +263,10 @@ const MessageBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
           ))}
         </div>
       </div>
+  
     </motion.div>
+
+
   );
 };
 

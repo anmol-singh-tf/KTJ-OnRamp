@@ -18,7 +18,7 @@ import { toast } from 'sonner';
 
 type PaymentStep = 'input' | 'amount' | 'confirm' | 'processing' | 'success' | 'error';
 
-const SEPOLIA_RPC = 'https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161';
+const SEPOLIA_RPC = import.meta.env.SEPOLIA_RPC_URL||'https://sepolia.infura.io/v3/a1cf6b93c95b4e079a21fa4fca874411';
 
 const Pay: React.FC = () => {
   const [step, setStep] = useState<PaymentStep>('input');

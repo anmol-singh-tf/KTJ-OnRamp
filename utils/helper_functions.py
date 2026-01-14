@@ -2,6 +2,14 @@ import os
 import json
 import requests
 
+session_token = None
+def get_session_token():
+    global session_token
+    return session_token
+def set_session_token(token):
+    global session_token
+    session_token = token
+
 def register_merchant(account_address, name, business_type, description, kyc_info=None):
     """
     Registers a new merchant in Data/merchants.json if the name is unique.
@@ -67,24 +75,95 @@ def register_merchant(account_address, name, business_type, description, kyc_inf
 
     return {"success": True, "merchant": merchant_entry}
 
-def pay(apiendpoint, receiver_address, amount):
+
+def pay(api_endpoint, receiver_address, amount):
     """
-    Pays a merchant using the payment API endpoint.
+    Pays a merchant via the restricted payment rail.
+    
+    This function:
+    1. Calls frontend /api/register-token to request authorization (triggers UI)
+    2. Waits for user to authorize with fingerprint
+    3. Calls frontend /agent/pay with session token to execute payment
+    4. Returns transaction hash or error
+    
     Args:
-        apiendpoint (str): The API endpoint URL to call for payment.
-        receiver_address (str): The receiver's wallet address.
-        amount (float): Amount to send in ETH.
+        receiver_address (str): The receiver's wallet address on Sepolia
+        amount (float): Amount to send in ETH
+    
     Returns:
-        dict: Result of payment, or reason for failure.
+        dict: Result of payment with tx_hash or error
     """
-    payload = {
-        "receiver": receiver_address,
-        "amount": amount
-    }
-    response = requests.post(apiendpoint, json=payload)
-    if response.status_code == 200:
-        return {"success": True, "tx_hash": response.json().get("tx_hash")}
-    else:
-        return {"success": False, "error": response.text}
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5001")
+    
+    session_token = get_session_token()
+    
+    try:
+        if not session_token:   
+            # Step 1: Request authorization token from frontend
+            register_response = requests.post(
+                f"{frontend_url}/api/register-token",
+                json={},
+                timeout=300  # 5 minute timeout for user authorization
+            )
+            
+            if register_response.status_code != 200:
+                return {
+                    "success": False,
+                    "error": f"Failed to register token: {register_response.text}"
+                }
+            
+            register_data = register_response.json()
+            if not register_data.get("success"):
+                return {
+                    "success": False,
+                    "error": register_data.get("error", "Authorization failed")
+                }   
+            session_token = register_data.get("token")
+            set_session_token(session_token)
+            
+        print(f"\n\n###Session token: {session_token}")
+        
+        # Step 2: Make payment with session token
+        pay_payload = {
+            "receiver": receiver_address,
+            "amount": amount,
+            "sessionToken": session_token
+        }
+        
+        pay_response = requests.post(
+            f"{frontend_url}/agent/pay",
+            json=pay_payload,
+            timeout=60
+        )
+        
+        pay_data = pay_response.json()
+        print(f"\n\n###Pay data: {pay_data}")
+        if pay_response.status_code == 200 and pay_data.get("success"):
+            return {
+                "success": True,
+                "tx_hash": pay_data.get("tx_hash"),
+                "status": "Settled autonomously"
+            }
+        else:
+            return {
+                "success": False,
+                "error": pay_data.get("error", "Payment failed")
+            }
+            
+    except requests.exceptions.Timeout:
+        return {
+            "success": False,
+            "error": "Authorization timeout - user did not respond in time"
+        }
+    except requests.exceptions.ConnectionError:
+        return {
+            "success": False,
+            "error": f"Could not connect to frontend at {frontend_url}. Make sure the frontend server is running."
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
     
